@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Copy, ExternalLink, Play, Wallet, Settings, IndianRupee, Eye, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Copy, ExternalLink, Play, Wallet, Settings, IndianRupee, Eye, Users, Square, Maximize2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Tip {
@@ -61,6 +62,15 @@ export default function CreatorDashboard() {
       title: "Sponsa Session Started!",
       description: "Your tip link is now active for this stream",
       duration: 3000,
+    });
+  };
+
+  const stopSession = () => {
+    setIsLive(false);
+    toast({
+      title: "Session Stopped",
+      description: "Your Sponsa session has been ended",
+      duration: 2000,
     });
   };
 
@@ -146,14 +156,19 @@ export default function CreatorDashboard() {
                       {isLive ? "Your Sponsa link is active and receiving tips" : "Start a new session to activate tip collection"}
                     </CardDescription>
                   </div>
-                  <Button 
-                    variant={isLive ? "outline" : "hero"} 
-                    onClick={startNewSession}
-                    disabled={isLive}
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    {isLive ? "Session Active" : "Start Sponsa"}
-                  </Button>
+                  <div className="flex space-x-2">
+                    {!isLive ? (
+                      <Button variant="hero" onClick={startNewSession}>
+                        <Play className="w-4 h-4 mr-2" />
+                        Start Sponsa
+                      </Button>
+                    ) : (
+                      <Button variant="destructive" onClick={stopSession}>
+                        <Square className="w-4 h-4 mr-2" />
+                        Stop Session
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
             </Card>
@@ -205,11 +220,60 @@ export default function CreatorDashboard() {
             {/* Live Tips Feed */}
             <Card className="bg-gradient-card border-0 shadow-card">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="w-5 h-5" />
-                  <span>Live Tips Feed</span>
-                  <Badge variant="secondary">{tips.length}</Badge>
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Users className="w-5 h-5" />
+                    <span className="text-lg font-semibold">Live Tips Feed</span>
+                    <Badge variant="secondary">{tips.length}</Badge>
+                  </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Maximize2 className="w-4 h-4 mr-2" />
+                        Enlarge View
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh]">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center space-x-2">
+                          <Users className="w-5 h-5" />
+                          <span>Live Tips Feed - Enlarged View</span>
+                          <Badge variant="secondary">{tips.length}</Badge>
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="max-h-[60vh] overflow-y-auto space-y-4 p-4">
+                        {tips.length === 0 ? (
+                          <div className="text-center py-12 text-muted-foreground">
+                            <Users className="w-16 h-16 mx-auto mb-6 opacity-50" />
+                            <p className="text-lg">No tips yet. Share your Sponsa link to start receiving support!</p>
+                          </div>
+                        ) : (
+                          tips.map((tip) => (
+                            <div key={tip.id} className="flex items-start space-x-4 p-4 bg-muted/50 rounded-lg animate-fade-in border">
+                              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                                <IndianRupee className="w-6 h-6 text-white" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <span className="text-lg font-semibold text-foreground">{tip.donorName}</span>
+                                  <Badge variant="outline" className="text-brand-purple border-brand-purple text-base px-3 py-1">
+                                    ₹{tip.amount}
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    {tip.timestamp.toLocaleTimeString()}
+                                  </span>
+                                </div>
+                                {tip.message && (
+                                  <p className="text-base text-muted-foreground leading-relaxed">{tip.message}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 <CardDescription>Recent tips from your viewers</CardDescription>
               </CardHeader>
               <CardContent>
