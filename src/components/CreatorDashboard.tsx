@@ -357,7 +357,7 @@ export default function CreatorDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold mb-4">₹{walletBalance.toLocaleString('en-IN')}</div>
-                <Button variant="orange" className="w-full">
+                <Button variant="green" className="w-full">
                   <IndianRupee className="w-4 h-4 mr-2" />
                   Withdraw to UPI
                 </Button>

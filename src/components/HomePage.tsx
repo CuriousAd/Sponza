@@ -181,7 +181,7 @@ export default function HomePage() {
           <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
             Join the growing community of Indian creators earning more with Sponsa.
           </p>
-          <Button variant="orange" size="xl" asChild>
+          <Button variant="green" size="xl" asChild>
             <Link to="/signup">
               Create Your Sponsa Link <ArrowRight className="w-5 h-5" />
             </Link>
