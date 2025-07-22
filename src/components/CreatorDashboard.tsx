@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Copy, ExternalLink, Play, Wallet, Settings, IndianRupee, Eye, Users, Square, Maximize2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Copy, ExternalLink, Play, Wallet, Settings, IndianRupee, Eye, Users, Square, Maximize2, Moon, Sun } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Tip {
@@ -18,6 +19,7 @@ interface Tip {
 export default function CreatorDashboard() {
   const { toast } = useToast();
   const [isLive, setIsLive] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [walletBalance, setWalletBalance] = useState(2847);
   const [tips, setTips] = useState<Tip[]>([
     {
@@ -233,43 +235,75 @@ export default function CreatorDashboard() {
                         Enlarge View
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh]">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center space-x-2">
-                          <Users className="w-5 h-5" />
-                          <span>Live Tips Feed - Enlarged View</span>
-                          <Badge variant="secondary">{tips.length}</Badge>
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="max-h-[60vh] overflow-y-auto space-y-4 p-4">
-                        {tips.length === 0 ? (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <Users className="w-16 h-16 mx-auto mb-6 opacity-50" />
-                            <p className="text-lg">No tips yet. Share your Sponsa link to start receiving support!</p>
-                          </div>
-                        ) : (
-                          tips.map((tip) => (
-                            <div key={tip.id} className="flex items-start space-x-4 p-4 bg-muted/50 rounded-lg animate-fade-in border">
-                              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
-                                <IndianRupee className="w-6 h-6 text-white" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center space-x-3 mb-2">
-                                  <span className="text-lg font-semibold text-foreground">{tip.donorName}</span>
-                                  <Badge variant="outline" className="text-brand-purple border-brand-purple text-base px-3 py-1">
-                                    ₹{tip.amount}
-                                  </Badge>
-                                  <span className="text-sm text-muted-foreground">
-                                    {tip.timestamp.toLocaleTimeString()}
-                                  </span>
-                                </div>
-                                {tip.message && (
-                                  <p className="text-base text-muted-foreground leading-relaxed">{tip.message}</p>
-                                )}
+                    <DialogContent className={`max-w-full w-screen h-screen m-0 p-0 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white'}`}>
+                      <div className={`flex flex-col h-full ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+                        <DialogHeader className={`flex-shrink-0 p-8 border-b ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className="flex items-center justify-between">
+                            <DialogTitle className="flex items-center space-x-3">
+                              <Users className="w-7 h-7" />
+                              <span className="text-2xl font-bold">Live Tips Feed - Full Screen</span>
+                              <Badge variant="secondary" className="text-lg px-4 py-2">{tips.length}</Badge>
+                            </DialogTitle>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-3">
+                                <Sun className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-yellow-500'}`} />
+                                <Switch
+                                  checked={isDarkMode}
+                                  onCheckedChange={setIsDarkMode}
+                                  className="data-[state=checked]:bg-gray-600"
+                                />
+                                <Moon className={`w-5 h-5 ${isDarkMode ? 'text-blue-400' : 'text-gray-400'}`} />
                               </div>
                             </div>
-                          ))
-                        )}
+                          </div>
+                        </DialogHeader>
+                        <div className="flex-1 overflow-y-auto p-8">
+                          <div className="max-w-6xl mx-auto space-y-6">
+                            {tips.length === 0 ? (
+                              <div className={`text-center py-24 ${isDarkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
+                                <Users className="w-24 h-24 mx-auto mb-8 opacity-50" />
+                                <p className="text-2xl font-medium">No tips yet. Share your Sponsa link to start receiving support!</p>
+                              </div>
+                            ) : (
+                              tips.map((tip) => (
+                                <div key={tip.id} className={`flex items-start space-x-6 p-8 rounded-xl animate-fade-in border-2 ${
+                                  isDarkMode 
+                                    ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' 
+                                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                } transition-colors duration-200`}>
+                                  <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center flex-shrink-0">
+                                    <IndianRupee className="w-8 h-8 text-white" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-4 mb-3">
+                                      <span className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {tip.donorName}
+                                      </span>
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`text-xl px-4 py-2 font-semibold ${
+                                          isDarkMode 
+                                            ? 'text-purple-400 border-purple-400 bg-purple-900/20' 
+                                            : 'text-brand-purple border-brand-purple bg-purple-50'
+                                        }`}
+                                      >
+                                        ₹{tip.amount}
+                                      </Badge>
+                                      <span className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
+                                        {tip.timestamp.toLocaleTimeString()}
+                                      </span>
+                                    </div>
+                                    {tip.message && (
+                                      <p className={`text-xl leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {tip.message}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </DialogContent>
                   </Dialog>
