@@ -12,7 +12,7 @@ export default function HomePage() {
       <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <img src="/lovable-uploads/5b3ece4f-29f4-4c15-8b21-212ced34d403.png" alt="Sponsa" className="w-8 h-8" />
+            <img src="/lovable-uploads/5b3ece4f-29f4-4c15-8b21-212ced34d403.png" alt="Sponsa" className="w-10 h-10" />
             <span className="text-xl font-bold text-foreground">Sponsa</span>
           </div>
           <div className="flex items-center space-x-4">
@@ -193,7 +193,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <img src="/lovable-uploads/5b3ece4f-29f4-4c15-8b21-212ced34d403.png" alt="Sponsa" className="w-8 h-8" />
+              <img src="/lovable-uploads/5b3ece4f-29f4-4c15-8b21-212ced34d403.png" alt="Sponsa" className="w-10 h-10" />
               <span className="text-xl font-bold text-foreground">Sponsa</span>
             </div>
             <div className="text-muted-foreground">
