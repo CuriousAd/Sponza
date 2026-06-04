@@ -1,6 +1,6 @@
 # Phase 2 — Collections, Schemas & Indexes
 
-> **Goal:** Define every MongoDB collection Sponsa needs, with document shapes, indexes, and validation.
+> **Goal:** Define every MongoDB collection Sponsa needs, with document shapes, Pydantic/Beanie models, indexes, and validation.
 
 ---
 
@@ -26,24 +26,38 @@
 
 ---
 
+## Python Stack for MongoDB
+
+| Tool | Purpose |
+|------|---------|
+| **Motor** | Async MongoDB driver (wraps pymongo for asyncio) |
+| **Beanie** | Async ODM built on Motor + Pydantic |
+| **Pydantic** | Data validation (built into FastAPI) |
+
+```bash
+pip install motor beanie pydantic
+```
+
+---
+
 ## 1. `waitlist` — Build First
 
 ### Document Shape
 
-```js
+```json
 {
-  _id: ObjectId,
-  email: "creator@example.com",       // unique
-  name: "Ronak",
-  youtubeUrl: "https://youtube.com/@ronak",
-  message: "optional",
-  status: "pending",                   // "pending" | "approved" | "rejected"
-  createdAt: ISODate,
-  updatedAt: ISODate,
-  approvedAt: null,
-  approvedBy: null,
-  clerkInvitationId: null,
-  clerkUserId: null
+  "_id": "ObjectId",
+  "email": "creator@example.com",
+  "name": "Ronak",
+  "youtube_url": "https://youtube.com/@ronak",
+  "message": "optional",
+  "status": "pending",
+  "created_at": "ISODate",
+  "updated_at": "ISODate",
+  "approved_at": null,
+  "approved_by": null,
+  "clerk_invitation_id": null,
+  "clerk_user_id": null
 }
 ```
 
@@ -55,25 +69,45 @@ db.waitlist.createIndex({ status: 1, createdAt: -1 });             // admin: pen
 db.waitlist.createIndex({ createdAt: -1 });                        // recent signups
 ```
 
-### Mongoose Schema
+### Beanie Model
 
-```js
-// server/models/Waitlist.js
-import mongoose from "mongoose";
+```python
+# server/models/waitlist.py
+from datetime import datetime
+from enum import Enum
+from typing import Optional
 
-const waitlistSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  name: { type: String, required: true, trim: true, maxlength: 100 },
-  youtubeUrl: { type: String, required: true, trim: true },
-  message: { type: String, trim: true, maxlength: 500, default: null },
-  status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
-  approvedAt: { type: Date, default: null },
-  approvedBy: { type: String, default: null },
-  clerkInvitationId: { type: String, default: null },
-  clerkUserId: { type: String, default: null }
-}, { timestamps: true });
+from beanie import Document, Indexed
+from pydantic import EmailStr, Field
 
-export const Waitlist = mongoose.model("Waitlist", waitlistSchema);
+
+class WaitlistStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class Waitlist(Document):
+    email: Indexed(EmailStr, unique=True)
+    name: str = Field(max_length=100)
+    youtube_url: str
+    message: Optional[str] = Field(default=None, max_length=500)
+    status: WaitlistStatus = WaitlistStatus.PENDING
+
+    approved_at: Optional[datetime] = None
+    approved_by: Optional[str] = None
+    clerk_invitation_id: Optional[str] = None
+    clerk_user_id: Optional[str] = None
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "waitlist"
+        indexes = [
+            [("status", 1), ("created_at", -1)],
+            [("created_at", -1)],
+        ]
 ```
 
 ---
@@ -82,29 +116,54 @@ export const Waitlist = mongoose.model("Waitlist", waitlistSchema);
 
 ### Document Shape
 
-```js
+```json
 {
-  _id: ObjectId,
-  clerkUserId: "user_2abc123",         // unique, from Clerk
-  email: "creator@example.com",        // unique
-  slug: "ronak",                       // unique → sponsa.in/ronak
-  displayName: "Ronak",
-  avatarUrl: null,
-  youtubeUrl: "https://youtube.com/@ronak",
-  upiId: null,                         // set by creator in settings
-  walletBalance: Decimal128("0.00"),    // ⚠️ Decimal128, not Number
-  approved: true,
-  createdAt: ISODate,
-  updatedAt: ISODate
+  "_id": "ObjectId",
+  "clerk_user_id": "user_2abc123",
+  "email": "creator@example.com",
+  "slug": "ronak",
+  "display_name": "Ronak",
+  "avatar_url": null,
+  "youtube_url": "https://youtube.com/@ronak",
+  "upi_id": null,
+  "wallet_balance": "Decimal128(0.00)",
+  "approved": true,
+  "created_at": "ISODate",
+  "updated_at": "ISODate"
 }
 ```
 
-### Indexes
+### Beanie Model
 
-```js
-db.creators.createIndex({ clerkUserId: 1 }, { unique: true });
-db.creators.createIndex({ email: 1 }, { unique: true });
-db.creators.createIndex({ slug: 1 }, { unique: true });
+```python
+# server/models/creator.py
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional
+
+from beanie import Document, Indexed
+from pydantic import EmailStr, Field
+
+
+class Creator(Document):
+    clerk_user_id: Indexed(str, unique=True)
+    email: Indexed(EmailStr, unique=True)
+    slug: Indexed(str, unique=True)  # sponsa.in/{slug}
+    display_name: str
+    avatar_url: Optional[str] = None
+    youtube_url: Optional[str] = None
+    upi_id: Optional[str] = None
+    wallet_balance: Decimal = Decimal("0.00")
+    approved: bool = True
+    onboarded_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "creators"
+        bson_encoders = {
+            Decimal: lambda v: Decimal(str(v))  # store as Decimal128
+        }
 ```
 
 ### Link Flow: Waitlist → Creator
@@ -121,34 +180,48 @@ waitlist (status: "approved")
 
 ## 3. `tips` — Payments Phase
 
-### Document Shape
+### Beanie Model
 
-```js
-{
-  _id: ObjectId,
-  creatorId: ObjectId,                  // ref → creators._id
-  donorName: "Raj",
-  message: "Great stream!",
-  amount: Decimal128("100.00"),         // full tip
-  creatorShare: Decimal128("90.00"),    // 90%
-  sponsaFee: Decimal128("10.00"),       // 10%
-  razorpayPaymentId: "pay_ABC123",     // unique
-  razorpayOrderId: "order_XYZ789",
-  sessionId: null,
-  timestamp: ISODate,
-  expiresAt: ISODate                   // timestamp + 72h
-}
+```python
+# server/models/tip.py
+from datetime import datetime, timedelta
+from decimal import Decimal
+from typing import Optional
+
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
+
+
+class Tip(Document):
+    creator_id: Indexed(PydanticObjectId)
+    donor_name: str = Field(max_length=100)
+    message: Optional[str] = Field(default=None, max_length=500)
+
+    # Money — always use Decimal for currency
+    amount: Decimal
+    creator_share: Decimal       # 90%
+    sponsa_fee: Decimal          # 10%
+
+    # Razorpay references
+    razorpay_payment_id: Indexed(str, unique=True)
+    razorpay_order_id: str
+    session_id: Optional[str] = None
+
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime = Field(
+        default_factory=lambda: datetime.utcnow() + timedelta(hours=72)
+    )
+
+    class Settings:
+        name = "tips"
+        indexes = [
+            [("creator_id", 1), ("timestamp", -1)],  # dashboard feed
+            # TTL index — auto-delete after 72h
+            # NOTE: TTL index must be created via mongosh (already done in Phase 2 setup)
+        ]
 ```
 
-### Indexes
-
-```js
-db.tips.createIndex({ creatorId: 1, timestamp: -1 });              // dashboard feed
-db.tips.createIndex({ razorpayPaymentId: 1 }, { unique: true });   // idempotent webhooks
-db.tips.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });  // TTL: auto-delete after 72h
-```
-
-> **TTL explained:** MongoDB background task auto-deletes docs when `expiresAt` passes. Set `expiresAt = timestamp + 72h` on insert. No cron needed.
+> **TTL explained:** The `expires_at` + TTL index means MongoDB auto-deletes tip docs ~72h after creation. No cron needed.
 
 > ⚠️ If you need tip history for tax/analytics, skip the TTL index and archive manually.
 
@@ -156,94 +229,125 @@ db.tips.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });  // TTL: auto-
 
 ## 4. `withdrawals`
 
-```js
-{
-  _id: ObjectId,
-  creatorId: ObjectId,
-  amount: Decimal128("500.00"),
-  upiId: "ronak@upi",
-  razorpayPayoutId: "pout_DEF456",
-  status: "pending",                   // "pending"|"processing"|"processed"|"failed"
-  failureReason: null,
-  requestedAt: ISODate,
-  processedAt: null
-}
-```
+```python
+# server/models/withdrawal.py
+from datetime import datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Optional
 
-### Indexes
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
 
-```js
-db.withdrawals.createIndex({ creatorId: 1, requestedAt: -1 });
-db.withdrawals.createIndex({ razorpayPayoutId: 1 }, { unique: true, sparse: true });
-db.withdrawals.createIndex({ status: 1 });
+
+class WithdrawalStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PROCESSED = "processed"
+    FAILED = "failed"
+
+
+class Withdrawal(Document):
+    creator_id: Indexed(PydanticObjectId)
+    amount: Decimal
+    upi_id: str
+    razorpay_payout_id: Optional[str] = None  # sparse unique
+    status: WithdrawalStatus = WithdrawalStatus.PENDING
+    failure_reason: Optional[str] = None
+    requested_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: Optional[datetime] = None
+
+    class Settings:
+        name = "withdrawals"
+        indexes = [
+            [("creator_id", 1), ("requested_at", -1)],
+            # razorpay_payout_id unique sparse — created via mongosh
+        ]
 ```
 
 ---
 
 ## 5. `sponsa_revenue`
 
-```js
-{
-  _id: ObjectId,
-  tipId: ObjectId,
-  razorpayPaymentId: "pay_ABC123",
-  amount: Decimal128("10.00"),
-  recordedAt: ISODate
-}
-```
+```python
+# server/models/revenue.py
+from datetime import datetime
+from decimal import Decimal
 
-### Indexes
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
 
-```js
-db.sponsa_revenue.createIndex({ tipId: 1 }, { unique: true });
-db.sponsa_revenue.createIndex({ recordedAt: -1 });
+
+class SponSaRevenue(Document):
+    tip_id: Indexed(PydanticObjectId, unique=True)
+    razorpay_payment_id: str
+    amount: Decimal
+    recorded_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "sponsa_revenue"
+        indexes = [
+            [("recorded_at", -1)],
+        ]
 ```
 
 ---
 
 ## Critical: Money Type & Transactions
 
-### Why Decimal128
+### Why Decimal (not float)
 
-```js
-// ❌ JS Number: 0.1 + 0.2 = 0.30000000000000004
-// ✅ Decimal128: exact decimal arithmetic for money
+```python
+# ❌ Float: 0.1 + 0.2 = 0.30000000000000004
+# ✅ Decimal: exact decimal arithmetic for money
 
-walletBalance: mongoose.Types.Decimal128.fromString("90.00")
+from decimal import Decimal
+wallet_balance = Decimal("90.00")
 ```
+
+Beanie/Motor stores Python `Decimal` as MongoDB `Decimal128` automatically.
 
 ### Multi-Document Transactions (wallet updates)
 
 When a tip arrives, update 3 collections atomically:
 
-```js
-const session = await mongoose.startSession();
-session.startTransaction();
-try {
-  await Tip.create([{ ...tipData }], { session });
-  await Creator.findByIdAndUpdate(creatorId,
-    { $inc: { walletBalance: Decimal128.fromString(creatorShare) } },
-    { session }
-  );
-  await SponSaRevenue.create([{ tipId, amount: sponsaFee, recordedAt: new Date() }], { session });
-  await session.commitTransaction();
-} catch (err) {
-  await session.abortTransaction();
-  throw err;
-} finally {
-  session.endSession();
-}
+```python
+from motor.motor_asyncio import AsyncIOMotorClient
+
+async def process_tip(tip_data: dict, creator_id: str, creator_share: Decimal, sponsa_fee: Decimal):
+    client: AsyncIOMotorClient = Tip.get_motor_collection().database.client
+
+    async with await client.start_session() as session:
+        async with session.start_transaction():
+            # 1. Insert tip
+            tip = Tip(**tip_data)
+            await tip.insert(session=session)
+
+            # 2. Credit creator wallet
+            creator = await Creator.get(creator_id, session=session)
+            creator.wallet_balance += creator_share
+            await creator.save(session=session)
+
+            # 3. Record Sponsa revenue
+            revenue = SponSaRevenue(
+                tip_id=tip.id,
+                razorpay_payment_id=tip.razorpay_payment_id,
+                amount=sponsa_fee,
+            )
+            await revenue.insert(session=session)
 ```
+
+> ⚠️ Transactions require a replica set (Atlas M0+ all have this).
 
 ---
 
 ## Verification Checklist
 
 - [ ] `waitlist` collection: unique email index → duplicate returns error `11000`
-- [ ] `creators` uses `Decimal128` for `walletBalance`
+- [ ] `creators` uses `Decimal` for `wallet_balance` (stored as `Decimal128`)
 - [ ] TTL index on `tips.expiresAt` with `expireAfterSeconds: 0`
 - [ ] All indexes visible in Atlas → Collections → Indexes tab
-- [ ] Mongoose schemas match document shapes above
+- [ ] Beanie models match document shapes above
 
 ---
 

@@ -1,6 +1,6 @@
 # Phase 3 — Backend API Scaffold & Waitlist Endpoint
 
-> **Goal:** A working Express + Mongoose backend with a `POST /api/waitlist` endpoint connected to your Atlas cluster.
+> **Goal:** A working FastAPI + Motor/Beanie backend with a `POST /api/waitlist` endpoint connected to your Atlas cluster.
 
 ---
 
@@ -8,22 +8,29 @@
 
 ```
 sponza-tip-it-now/
-├── src/                    # Vite frontend (existing)
-├── server/                 # NEW — backend API
-│   ├── index.js            # Express entry point
-│   ├── db.js               # Mongoose connection
+├── src/                        # Vite frontend (existing)
+├── server/                     # NEW — FastAPI backend
+│   ├── main.py                 # FastAPI entry point
+│   ├── db.py                   # Motor/Beanie connection
+│   ├── config.py               # Settings via pydantic-settings
 │   ├── models/
-│   │   └── Waitlist.js     # Waitlist schema
+│   │   ├── __init__.py
+│   │   ├── waitlist.py         # Waitlist Beanie document
+│   │   ├── creator.py          # Creator document
+│   │   ├── tip.py              # Tip document
+│   │   ├── withdrawal.py       # Withdrawal document
+│   │   └── revenue.py          # SponSa revenue document
 │   ├── routes/
-│   │   └── waitlist.js     # Waitlist API routes
-│   ├── middleware/
-│   │   └── validate.js     # Zod validation middleware
-│   └── .env.local          # Local env vars (gitignored)
+│   │   ├── __init__.py
+│   │   └── waitlist.py         # Waitlist API routes
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   └── waitlist.py         # Request/response Pydantic models
+│   ├── requirements.txt
+│   └── .env                    # Local env vars (gitignored)
 ├── package.json
 └── ...
 ```
-
-> You can also create a separate repo (`sponsa-api`). Same steps apply — just a different folder.
 
 ---
 
@@ -31,298 +38,343 @@ sponza-tip-it-now/
 
 ```bash
 # From project root
-mkdir -p server/models server/routes server/middleware
+mkdir -p server/models server/routes server/schemas
+touch server/models/__init__.py server/routes/__init__.py server/schemas/__init__.py
+```
 
-# Install backend dependencies
+### Create `server/requirements.txt`
+
+```txt
+fastapi==0.115.*
+uvicorn[standard]==0.34.*
+motor==3.7.*
+beanie==1.27.*
+pydantic[email]==2.*
+pydantic-settings==2.*
+python-dotenv==1.*
+```
+
+### Install dependencies
+
+```bash
 cd server
-npm init -y
-npm install express mongoose dotenv cors zod
-npm install -D nodemon
-```
-
-### Add scripts to `server/package.json`
-
-```json
-{
-  "type": "module",
-  "scripts": {
-    "dev": "nodemon index.js",
-    "start": "node index.js"
-  }
-}
+pip install -r requirements.txt
 ```
 
 ---
 
-## Step 2 — Database Connection Module
+## Step 2 — Configuration
 
-```js
-// server/db.js
-import mongoose from "mongoose";
+```python
+# server/config.py
+from pydantic_settings import BaseSettings
 
-export async function connectDb() {
-  if (mongoose.connection.readyState === 1) return;
 
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      dbName: process.env.MONGODB_DB_NAME || "sponsa",
-    });
-    console.log("✅ Connected to MongoDB Atlas");
-  } catch (error) {
-    console.error("❌ MongoDB connection failed:", error.message);
-    process.exit(1);
-  }
-}
-```
+class Settings(BaseSettings):
+    mongodb_uri: str
+    mongodb_db_name: str = "sponsa_dev"
+    port: int = 8000
+    frontend_url: str = "http://localhost:5173"
 
-### Connection best practices
+    class Config:
+        env_file = ".env"
 
-| Rule | Why |
-|------|-----|
-| Single connection, reused | Mongoose maintains a pool (default 5 connections) |
-| `dbName` in connect options | Keeps URI clean, easy to switch dev/prod |
-| `readyState` check | Prevents duplicate connections on hot-reload |
-| Exit on failure | Don't serve requests without a DB |
 
----
-
-## Step 3 — Waitlist Model
-
-```js
-// server/models/Waitlist.js
-import mongoose from "mongoose";
-
-const waitlistSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: [true, "Email is required"],
-    unique: true,
-    lowercase: true,
-    trim: true,
-  },
-  name: {
-    type: String,
-    required: [true, "Name is required"],
-    trim: true,
-    maxlength: 100,
-  },
-  youtubeUrl: {
-    type: String,
-    required: [true, "YouTube URL is required"],
-    trim: true,
-  },
-  message: {
-    type: String,
-    trim: true,
-    maxlength: 500,
-    default: null,
-  },
-  status: {
-    type: String,
-    enum: ["pending", "approved", "rejected"],
-    default: "pending",
-  },
-  approvedAt: { type: Date, default: null },
-  approvedBy: { type: String, default: null },
-  clerkInvitationId: { type: String, default: null },
-  clerkUserId: { type: String, default: null },
-}, {
-  timestamps: true,
-});
-
-export const Waitlist = mongoose.model("Waitlist", waitlistSchema);
+settings = Settings()
 ```
 
 ---
 
-## Step 4 — Validation Middleware (Zod)
+## Step 3 — Database Connection
 
-```js
-// server/middleware/validate.js
-import { z } from "zod";
+```python
+# server/db.py
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
 
-export const waitlistBody = z.object({
-  email: z.string().email("Invalid email"),
-  name: z.string().min(1, "Name required").max(100),
-  youtubeUrl: z.string().url("Invalid YouTube URL"),
-  message: z.string().max(500).optional(),
-});
+from config import settings
+from models.waitlist import Waitlist
+from models.creator import Creator
+from models.tip import Tip
+from models.withdrawal import Withdrawal
+from models.revenue import SponSaRevenue
 
-export function validate(schema) {
-  return (req, res, next) => {
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({
-        error: "Validation failed",
-        issues: result.error.issues.map(i => ({
-          field: i.path.join("."),
-          message: i.message,
-        })),
-      });
-    }
-    req.validated = result.data;
-    next();
-  };
-}
+
+async def connect_db():
+    """Initialize Motor client and Beanie ODM."""
+    client = AsyncIOMotorClient(settings.mongodb_uri)
+    db = client[settings.mongodb_db_name]
+
+    await init_beanie(
+        database=db,
+        document_models=[
+            Waitlist,
+            Creator,
+            Tip,
+            Withdrawal,
+            SponSaRevenue,
+        ],
+    )
+    print(f"✅ Connected to MongoDB: {settings.mongodb_db_name}")
+    return client
 ```
 
 ---
 
-## Step 5 — Waitlist Routes
+## Step 4 — Waitlist Model
 
-```js
-// server/routes/waitlist.js
-import { Router } from "express";
-import { Waitlist } from "../models/Waitlist.js";
-import { validate, waitlistBody } from "../middleware/validate.js";
+```python
+# server/models/waitlist.py
+from datetime import datetime
+from enum import Enum
+from typing import Optional
 
-const router = Router();
+from beanie import Document, Indexed
+from pydantic import EmailStr, Field
 
-// POST /api/waitlist — new signup
-router.post("/", validate(waitlistBody), async (req, res) => {
-  try {
-    const entry = await Waitlist.create(req.validated);
-    return res.status(201).json({
-      message: "You're on the waitlist!",
-      id: entry._id,
-    });
-  } catch (error) {
-    // Duplicate email
-    if (error.code === 11000) {
-      return res.status(409).json({
-        error: "This email is already on the waitlist.",
-      });
-    }
-    console.error("Waitlist error:", error);
-    return res.status(500).json({ error: "Something went wrong." });
-  }
-});
 
-// GET /api/waitlist/check?email=x — check if email exists
-router.get("/check", async (req, res) => {
-  const { email } = req.query;
-  if (!email) return res.status(400).json({ error: "Email required" });
+class WaitlistStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
-  const entry = await Waitlist.findOne({ email: email.toLowerCase() });
-  return res.json({
-    exists: !!entry,
-    status: entry?.status || null,
-  });
-});
 
-export default router;
+class Waitlist(Document):
+    email: Indexed(EmailStr, unique=True)
+    name: str = Field(max_length=100)
+    youtube_url: str
+    message: Optional[str] = Field(default=None, max_length=500)
+    status: WaitlistStatus = WaitlistStatus.PENDING
+
+    approved_at: Optional[datetime] = None
+    approved_by: Optional[str] = None
+    clerk_invitation_id: Optional[str] = None
+    clerk_user_id: Optional[str] = None
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "waitlist"
+        indexes = [
+            [("status", 1), ("created_at", -1)],
+            [("created_at", -1)],
+        ]
 ```
 
 ---
 
-## Step 6 — Express Server Entry Point
+## Step 5 — Request/Response Schemas
 
-```js
-// server/index.js
-import "dotenv/config";
-import express from "express";
-import cors from "cors";
-import { connectDb } from "./db.js";
-import waitlistRoutes from "./routes/waitlist.js";
+```python
+# server/schemas/waitlist.py
+from typing import Optional
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
-const app = express();
-const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
-  credentials: true,
-}));
-app.use(express.json({ limit: "10kb" }));
+class WaitlistCreateRequest(BaseModel):
+    email: EmailStr
+    name: str = Field(min_length=1, max_length=100)
+    youtube_url: HttpUrl
+    message: Optional[str] = Field(default=None, max_length=500)
 
-// Routes
-app.use("/api/waitlist", waitlistRoutes);
 
-// Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", db: !!require("mongoose").connection.readyState });
-});
+class WaitlistCreateResponse(BaseModel):
+    message: str
+    id: str
 
-// Start
-async function start() {
-  await connectDb();
-  app.listen(PORT, () => {
-    console.log(`🚀 Sponsa API running on port ${PORT}`);
-  });
-}
 
-start();
+class WaitlistCheckResponse(BaseModel):
+    exists: bool
+    status: Optional[str] = None
+
+
+class ErrorResponse(BaseModel):
+    error: str
 ```
 
 ---
 
-## Step 7 — Environment File
+## Step 6 — Waitlist Routes
+
+```python
+# server/routes/waitlist.py
+from fastapi import APIRouter, HTTPException, Query
+from pymongo.errors import DuplicateKeyError
+
+from models.waitlist import Waitlist
+from schemas.waitlist import (
+    WaitlistCreateRequest,
+    WaitlistCreateResponse,
+    WaitlistCheckResponse,
+)
+
+router = APIRouter(prefix="/api/waitlist", tags=["waitlist"])
+
+
+@router.post("/", response_model=WaitlistCreateResponse, status_code=201)
+async def join_waitlist(body: WaitlistCreateRequest):
+    """Add a new creator to the waitlist."""
+    try:
+        entry = Waitlist(
+            email=body.email,
+            name=body.name,
+            youtube_url=str(body.youtube_url),
+            message=body.message,
+        )
+        await entry.insert()
+        return WaitlistCreateResponse(
+            message="You're on the waitlist!",
+            id=str(entry.id),
+        )
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=409,
+            detail="This email is already on the waitlist.",
+        )
+
+
+@router.get("/check", response_model=WaitlistCheckResponse)
+async def check_waitlist(email: str = Query(..., description="Email to check")):
+    """Check if an email is already on the waitlist."""
+    entry = await Waitlist.find_one(Waitlist.email == email.lower())
+    return WaitlistCheckResponse(
+        exists=entry is not None,
+        status=entry.status if entry else None,
+    )
+```
+
+---
+
+## Step 7 — FastAPI Entry Point
+
+```python
+# server/main.py
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from config import settings
+from db import connect_db
+from routes.waitlist import router as waitlist_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: connect to MongoDB. Shutdown: cleanup."""
+    client = await connect_db()
+    yield
+    client.close()
+
+
+app = FastAPI(
+    title="Sponsa API",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.frontend_url],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Routes
+app.include_router(waitlist_router)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+```
+
+---
+
+## Step 8 — Environment File
 
 ```env
-# server/.env.local
-MONGODB_URI=mongodb+srv://sponsa_api:YOUR_PASSWORD@sponsa-prod.xxxxx.mongodb.net/?retryWrites=true&w=majority
+# server/.env
+MONGODB_URI=mongodb+srv://mathelet:$sponsa$12@sponsa-prod.jarn7lk.mongodb.net/?appName=sponsa-prod
 MONGODB_DB_NAME=sponsa_dev
-PORT=3001
+PORT=8000
 FRONTEND_URL=http://localhost:5173
 ```
 
-> ⚠️ Add `.env.local` to your `.gitignore` if not already there.
+> ⚠️ Add `.env` to your `.gitignore`. Never commit secrets.
+
+### Create `server/.env.example` for reference
+
+```env
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB_NAME=sponsa_dev
+PORT=8000
+FRONTEND_URL=http://localhost:5173
+```
 
 ---
 
-## Step 8 — Update .gitignore
+## Step 9 — Update .gitignore
 
 Add to the project root `.gitignore`:
 
 ```
 # Server env
-server/.env*
+server/.env
 !server/.env.example
-```
-
-Create `server/.env.example` for team reference:
-
-```env
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DB_NAME=sponsa_dev
-PORT=3001
-FRONTEND_URL=http://localhost:5173
+__pycache__/
+*.pyc
 ```
 
 ---
 
-## Step 9 — Test the Endpoint
+## Step 10 — Run & Test
+
+### Start the server
 
 ```bash
-# Terminal 1: Start server
-cd server && npm run dev
+cd server
+uvicorn main:app --reload --port 8000
+```
 
-# Terminal 2: Test waitlist signup
-curl -X POST http://localhost:3001/api/waitlist \
+### Test waitlist signup
+
+```bash
+curl -X POST http://localhost:8000/api/waitlist/ \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
     "name": "Test Creator",
-    "youtubeUrl": "https://youtube.com/@test",
+    "youtube_url": "https://youtube.com/@test",
     "message": "Excited to try Sponsa!"
   }'
 
 # Expected: 201 { "message": "You're on the waitlist!", "id": "..." }
-
-# Test duplicate
-curl -X POST http://localhost:3001/api/waitlist \
-  -H "Content-Type: application/json" \
-  -d '{ "email": "test@example.com", "name": "Test", "youtubeUrl": "https://youtube.com/@test" }'
-
-# Expected: 409 { "error": "This email is already on the waitlist." }
 ```
+
+### Test duplicate
+
+```bash
+curl -X POST http://localhost:8000/api/waitlist/ \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "test@example.com", "name": "Test", "youtube_url": "https://youtube.com/@test" }'
+
+# Expected: 409 { "detail": "This email is already on the waitlist." }
+```
+
+### Interactive API docs
+
+Open **http://localhost:8000/docs** — FastAPI auto-generates Swagger UI for all your endpoints.
 
 ---
 
-## Step 10 — Verify in Atlas
+## Step 11 — Verify in Atlas
 
 1. Go to Atlas → **Browse Collections**
-2. Database: `sponsa_dev` → Collection: `waitlists`
+2. Database: `sponsa_dev` → Collection: `waitlist`
 3. You should see your test document
 4. Check **Indexes** tab — confirm `email_1` unique index exists
 
@@ -330,20 +382,20 @@ curl -X POST http://localhost:3001/api/waitlist \
 
 ## Connecting Frontend (Vite) to Backend
 
-In your Vite app, call the API:
+```ts
+// src/api/waitlist.ts
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-```js
-// src/api/waitlist.js
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
-export async function joinWaitlist({ email, name, youtubeUrl, message }) {
-  const res = await fetch(`${API_URL}/api/waitlist`, {
+export async function joinWaitlist({ email, name, youtubeUrl, message }: {
+  email: string; name: string; youtubeUrl: string; message?: string;
+}) {
+  const res = await fetch(`${API_URL}/api/waitlist/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, name, youtubeUrl, message }),
+    body: JSON.stringify({ email, name, youtube_url: youtubeUrl, message }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed to join waitlist");
+  if (!res.ok) throw new Error(data.detail || "Failed to join waitlist");
   return data;
 }
 ```
@@ -351,22 +403,21 @@ export async function joinWaitlist({ email, name, youtubeUrl, message }) {
 Add to Vite's `.env`:
 
 ```env
-VITE_API_URL=http://localhost:3001
+VITE_API_URL=http://localhost:8000
 ```
-
-> `VITE_*` vars are safe — this is just the API URL, not secrets.
 
 ---
 
 ## Verification Checklist
 
-- [ ] `npm run dev` starts server on port 3001
-- [ ] `POST /api/waitlist` returns 201 with valid data
+- [ ] `uvicorn main:app --reload` starts server on port 8000
+- [ ] `POST /api/waitlist/` returns 201 with valid data
 - [ ] Duplicate email returns 409
-- [ ] Invalid data (missing name) returns 400 with Zod errors
+- [ ] Invalid data (missing name) returns 422 with Pydantic errors
 - [ ] Document visible in Atlas Data Explorer
-- [ ] `.env.local` is gitignored
+- [ ] `.env` is gitignored
 - [ ] Frontend can call the API without CORS errors
+- [ ] **http://localhost:8000/docs** shows Swagger UI
 
 ---
 

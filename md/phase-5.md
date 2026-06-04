@@ -18,100 +18,132 @@
 ## Step 1 — Install & Configure Razorpay
 
 ```bash
-# In server/
-npm install razorpay crypto
+pip install razorpay
 ```
 
-```js
-// server/lib/razorpay.js
-import Razorpay from "razorpay";
+Add to `server/requirements.txt`:
 
-export const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+```txt
+razorpay==1.*
 ```
 
-### Environment Variables
+### Razorpay Client
 
-```env
-# server/.env.local — add to existing
-RAZORPAY_KEY_ID=rzp_test_xxxxx
-RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxx
-RAZORPAY_WEBHOOK_SECRET=whsec_xxxxxxx
-RAZORPAY_X_ACCOUNT_NUMBER=2323230012345678
+```python
+# server/lib/razorpay_client.py
+import razorpay
+from config import settings
+
+client = razorpay.Client(
+    auth=(settings.razorpay_key_id, settings.razorpay_key_secret)
+)
+```
+
+### Update Config
+
+```python
+# server/config.py — add Razorpay settings
+class Settings(BaseSettings):
+    # ... existing fields ...
+
+    # Razorpay
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
+    razorpay_x_account_number: str = ""
 ```
 
 ---
 
-## Step 2 — Tip Models
+## Step 2 — Tip & Withdrawal Models
 
-```js
-// server/models/Tip.js
-import mongoose from "mongoose";
+```python
+# server/models/tip.py
+from datetime import datetime, timedelta
+from decimal import Decimal
+from typing import Optional
 
-const tipSchema = new mongoose.Schema({
-  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: "Creator", required: true },
-  donorName: { type: String, required: true, trim: true, maxlength: 100 },
-  message: { type: String, trim: true, maxlength: 500, default: null },
-  amount: { type: mongoose.Schema.Types.Decimal128, required: true },
-  creatorShare: { type: mongoose.Schema.Types.Decimal128, required: true },
-  sponsaFee: { type: mongoose.Schema.Types.Decimal128, required: true },
-  razorpayPaymentId: { type: String, unique: true, sparse: true },
-  razorpayOrderId: { type: String, required: true },
-  sessionId: { type: String, default: null },
-  timestamp: { type: Date, default: Date.now },
-  expiresAt: { type: Date, required: true },
-}, { toJSON: { getters: true } });
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
 
-// Getters for Decimal128 → number
-["amount", "creatorShare", "sponsaFee"].forEach(field => {
-  tipSchema.path(field).get(v => parseFloat(v?.toString() || "0"));
-});
 
-export const Tip = mongoose.model("Tip", tipSchema);
+class Tip(Document):
+    creator_id: Indexed(PydanticObjectId)
+    donor_name: str = Field(max_length=100)
+    message: Optional[str] = Field(default=None, max_length=500)
+    amount: Decimal
+    creator_share: Decimal
+    sponsa_fee: Decimal
+    razorpay_payment_id: Indexed(str, unique=True)
+    razorpay_order_id: str
+    session_id: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime = Field(
+        default_factory=lambda: datetime.utcnow() + timedelta(hours=72)
+    )
+
+    class Settings:
+        name = "tips"
+        indexes = [
+            [("creator_id", 1), ("timestamp", -1)],
+        ]
 ```
 
-```js
-// server/models/Withdrawal.js
-import mongoose from "mongoose";
+```python
+# server/models/withdrawal.py
+from datetime import datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Optional
 
-const withdrawalSchema = new mongoose.Schema({
-  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: "Creator", required: true },
-  amount: {
-    type: mongoose.Schema.Types.Decimal128, required: true,
-    get: v => parseFloat(v?.toString() || "0"),
-  },
-  upiId: { type: String, required: true },
-  razorpayPayoutId: { type: String, unique: true, sparse: true },
-  status: {
-    type: String,
-    enum: ["pending", "processing", "processed", "failed"],
-    default: "pending",
-  },
-  failureReason: { type: String, default: null },
-  requestedAt: { type: Date, default: Date.now },
-  processedAt: { type: Date, default: null },
-}, { toJSON: { getters: true } });
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
 
-export const Withdrawal = mongoose.model("Withdrawal", withdrawalSchema);
+
+class WithdrawalStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PROCESSED = "processed"
+    FAILED = "failed"
+
+
+class Withdrawal(Document):
+    creator_id: Indexed(PydanticObjectId)
+    amount: Decimal
+    upi_id: str
+    razorpay_payout_id: Optional[str] = None
+    status: WithdrawalStatus = WithdrawalStatus.PENDING
+    failure_reason: Optional[str] = None
+    requested_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: Optional[datetime] = None
+
+    class Settings:
+        name = "withdrawals"
+        indexes = [
+            [("creator_id", 1), ("requested_at", -1)],
+        ]
 ```
 
-```js
-// server/models/SponSaRevenue.js
-import mongoose from "mongoose";
+```python
+# server/models/revenue.py
+from datetime import datetime
+from decimal import Decimal
 
-const revenueSchema = new mongoose.Schema({
-  tipId: { type: mongoose.Schema.Types.ObjectId, ref: "Tip", required: true, unique: true },
-  razorpayPaymentId: { type: String, required: true },
-  amount: {
-    type: mongoose.Schema.Types.Decimal128, required: true,
-    get: v => parseFloat(v?.toString() || "0"),
-  },
-  recordedAt: { type: Date, default: Date.now },
-}, { toJSON: { getters: true } });
+from beanie import Document, Indexed, PydanticObjectId
+from pydantic import Field
 
-export const SponSaRevenue = mongoose.model("SponSaRevenue", revenueSchema);
+
+class SponSaRevenue(Document):
+    tip_id: Indexed(PydanticObjectId, unique=True)
+    razorpay_payment_id: str
+    amount: Decimal
+    recorded_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "sponsa_revenue"
+        indexes = [
+            [("recorded_at", -1)],
+        ]
 ```
 
 ---
@@ -120,80 +152,96 @@ export const SponSaRevenue = mongoose.model("SponSaRevenue", revenueSchema);
 
 ### 3.1 Create Razorpay Order
 
-```js
-// server/routes/tip.js
-import { Router } from "express";
-import { z } from "zod";
-import { razorpay } from "../lib/razorpay.js";
-import { Creator } from "../models/Creator.js";
-import { validate } from "../middleware/validate.js";
+```python
+# server/routes/tip.py
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from typing import Optional
 
-const router = Router();
+from models.creator import Creator
+from lib.razorpay_client import client as razorpay_client
+from config import settings
 
-const createOrderBody = z.object({
-  creatorSlug: z.string().min(1),
-  donorName: z.string().min(1).max(100),
-  amount: z.number().min(10).max(50000),  // ₹10 min, ₹50k max
-  message: z.string().max(500).optional(),
-});
+router = APIRouter(prefix="/api/tip", tags=["tips"])
 
-// POST /api/tip/create-order
-router.post("/create-order", validate(createOrderBody), async (req, res) => {
-  const { creatorSlug, donorName, amount, message } = req.validated;
 
-  // Find creator
-  const creator = await Creator.findOne({ slug: creatorSlug, approved: true });
-  if (!creator) return res.status(404).json({ error: "Creator not found" });
+class CreateOrderRequest(BaseModel):
+    creator_slug: str
+    donor_name: str = Field(min_length=1, max_length=100)
+    amount: int = Field(ge=10, le=50000)  # ₹10 min, ₹50k max
+    message: Optional[str] = Field(default=None, max_length=500)
 
-  // Create Razorpay order
-  const order = await razorpay.orders.create({
-    amount: Math.round(amount * 100),  // paise
-    currency: "INR",
-    receipt: `tip_${creator._id}_${Date.now()}`,
-    notes: {
-      creator_id: creator._id.toString(),
-      donor_name: donorName,
-      message: message || "",
-    },
-  });
 
-  return res.json({
-    orderId: order.id,
-    amount: order.amount,
-    currency: order.currency,
-    razorpayKeyId: process.env.RAZORPAY_KEY_ID,
-    creatorName: creator.displayName,
-  });
-});
+class CreateOrderResponse(BaseModel):
+    order_id: str
+    amount: int
+    currency: str
+    razorpay_key_id: str
+    creator_name: str
 
-export default router;
+
+@router.post("/create-order", response_model=CreateOrderResponse)
+async def create_order(body: CreateOrderRequest):
+    """Create a Razorpay order for a viewer tip."""
+    # Find creator
+    creator = await Creator.find_one(
+        Creator.slug == body.creator_slug,
+        Creator.approved == True,
+    )
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
+
+    # Create Razorpay order
+    import time
+    order = razorpay_client.order.create({
+        "amount": body.amount * 100,  # paise
+        "currency": "INR",
+        "receipt": f"tip_{creator.id}_{int(time.time())}",
+        "notes": {
+            "creator_id": str(creator.id),
+            "donor_name": body.donor_name,
+            "message": body.message or "",
+        },
+    })
+
+    return CreateOrderResponse(
+        order_id=order["id"],
+        amount=order["amount"],
+        currency=order["currency"],
+        razorpay_key_id=settings.razorpay_key_id,
+        creator_name=creator.display_name,
+    )
 ```
 
 ### 3.2 Frontend: Open Razorpay Checkout
 
-```js
-// src/api/tip.js
-export async function createTipOrder({ creatorSlug, donorName, amount, message }) {
+```ts
+// src/api/tip.ts
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+export async function createTipOrder(data: {
+  creator_slug: string; donor_name: string; amount: number; message?: string;
+}) {
   const res = await fetch(`${API_URL}/api/tip/create-order`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ creatorSlug, donorName, amount, message }),
+    body: JSON.stringify(data),
   });
   return res.json();
 }
 
-export function openRazorpayCheckout(orderData, onSuccess) {
+export function openRazorpayCheckout(orderData: any, onSuccess: (r: any) => void) {
   const options = {
-    key: orderData.razorpayKeyId,
+    key: orderData.razorpay_key_id,
     amount: orderData.amount,
     currency: orderData.currency,
-    order_id: orderData.orderId,
+    order_id: orderData.order_id,
     name: "Sponsa",
-    description: `Tip for ${orderData.creatorName}`,
-    handler: (response) => onSuccess(response),
+    description: `Tip for ${orderData.creator_name}`,
+    handler: onSuccess,
     theme: { color: "#6C63FF" },
   };
-  const rzp = new window.Razorpay(options);
+  const rzp = new (window as any).Razorpay(options);
   rzp.open();
 }
 ```
@@ -209,124 +257,136 @@ export function openRazorpayCheckout(orderData, onSuccess) {
 
 > **Critical:** Never trust the frontend to confirm payment. Always verify server-side.
 
-```js
-// server/routes/razorpayWebhook.js
-import { Router } from "express";
-import crypto from "crypto";
-import mongoose from "mongoose";
-import { Tip } from "../models/Tip.js";
-import { Creator } from "../models/Creator.js";
-import { SponSaRevenue } from "../models/SponSaRevenue.js";
-import { Withdrawal } from "../models/Withdrawal.js";
+```python
+# server/routes/razorpay_webhook.py
+import hashlib
+import hmac
+from datetime import datetime
+from decimal import Decimal
 
-const router = Router();
-const Decimal128 = mongoose.Types.Decimal128;
+from beanie import PydanticObjectId
+from fastapi import APIRouter, Request, HTTPException
 
-router.post("/", express.raw({ type: "application/json" }), async (req, res) => {
-  // Step 1: Verify HMAC signature
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-  const signature = req.headers["x-razorpay-signature"];
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(req.body)
-    .digest("hex");
+from config import settings
+from models.tip import Tip
+from models.creator import Creator
+from models.withdrawal import Withdrawal
+from models.revenue import SponSaRevenue
 
-  if (signature !== expected) {
-    return res.status(400).json({ error: "Invalid signature" });
-  }
+router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 
-  const payload = JSON.parse(req.body);
-  const event = payload.event;
 
-  // Step 2: Handle payment.captured (tip received)
-  if (event === "payment.captured") {
-    const payment = payload.payload.payment.entity;
-    const { creator_id, donor_name, message } = payment.notes;
+def verify_razorpay_signature(body: bytes, signature: str) -> bool:
+    """Verify Razorpay webhook HMAC-SHA256 signature."""
+    expected = hmac.new(
+        settings.razorpay_webhook_secret.encode(),
+        body,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
 
-    const tipAmount = payment.amount / 100;        // paise → rupees
-    const sponsaFee = tipAmount * 0.10;
-    const creatorShare = tipAmount * 0.90;
-    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
-    // Idempotency check
-    const existing = await Tip.findOne({ razorpayPaymentId: payment.id });
-    if (existing) return res.status(200).json({ message: "Already processed" });
+@router.post("/razorpay")
+async def razorpay_webhook(request: Request):
+    """Handle Razorpay payment and payout webhooks."""
+    body = await request.body()
+    signature = request.headers.get("x-razorpay-signature", "")
 
-    // Atomic transaction: tip + wallet + revenue
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    # Step 1: Verify HMAC signature
+    if not verify_razorpay_signature(body, signature):
+        raise HTTPException(status_code=400, detail="Invalid signature")
 
-    try {
-      const [tip] = await Tip.create([{
-        creatorId: creator_id,
-        donorName: donor_name,
-        message: message || null,
-        amount: Decimal128.fromString(tipAmount.toString()),
-        creatorShare: Decimal128.fromString(creatorShare.toString()),
-        sponsaFee: Decimal128.fromString(sponsaFee.toString()),
-        razorpayPaymentId: payment.id,
-        razorpayOrderId: payment.order_id,
-        timestamp: new Date(),
-        expiresAt,
-      }], { session });
+    import json
+    payload = json.loads(body)
+    event = payload.get("event")
 
-      await Creator.findByIdAndUpdate(creator_id, {
-        $inc: { walletBalance: Decimal128.fromString(creatorShare.toString()) },
-      }, { session });
+    # Step 2: Handle payment.captured (tip received)
+    if event == "payment.captured":
+        payment = payload["payload"]["payment"]["entity"]
+        notes = payment.get("notes", {})
 
-      await SponSaRevenue.create([{
-        tipId: tip._id,
-        razorpayPaymentId: payment.id,
-        amount: Decimal128.fromString(sponsaFee.toString()),
-        recordedAt: new Date(),
-      }], { session });
+        creator_id = notes.get("creator_id")
+        donor_name = notes.get("donor_name", "Anonymous")
+        message = notes.get("message") or None
 
-      await session.commitTransaction();
-      console.log(`✅ Tip processed: ₹${tipAmount} for creator ${creator_id}`);
-    } catch (err) {
-      await session.abortTransaction();
-      console.error("❌ Tip processing failed:", err);
-      return res.status(500).json({ error: "Processing failed" });
-    } finally {
-      session.endSession();
-    }
-  }
+        tip_amount = Decimal(str(payment["amount"])) / 100  # paise → rupees
+        sponsa_fee = tip_amount * Decimal("0.10")
+        creator_share = tip_amount * Decimal("0.90")
 
-  // Step 3: Handle payout events (withdrawals)
-  if (event === "payout.processed") {
-    const payout = payload.payload.payout.entity;
-    await Withdrawal.findOneAndUpdate(
-      { razorpayPayoutId: payout.id },
-      { status: "processed", processedAt: new Date() }
-    );
-  }
+        # Idempotency check
+        existing = await Tip.find_one(Tip.razorpay_payment_id == payment["id"])
+        if existing:
+            return {"message": "Already processed"}
 
-  if (event === "payout.failed" || event === "payout.reversed") {
-    const payout = payload.payload.payout.entity;
-    const withdrawal = await Withdrawal.findOneAndUpdate(
-      { razorpayPayoutId: payout.id },
-      { status: "failed", failureReason: payout.failure_reason }
-    );
-    // Refund wallet
-    if (withdrawal) {
-      await Creator.findByIdAndUpdate(withdrawal.creatorId, {
-        $inc: { walletBalance: withdrawal.amount },
-      });
-    }
-  }
+        # Atomic transaction: tip + wallet + revenue
+        session = await Tip.get_motor_collection().database.client.start_session()
+        async with session.start_transaction():
+            try:
+                # 1. Insert tip
+                tip = Tip(
+                    creator_id=PydanticObjectId(creator_id),
+                    donor_name=donor_name,
+                    message=message,
+                    amount=tip_amount,
+                    creator_share=creator_share,
+                    sponsa_fee=sponsa_fee,
+                    razorpay_payment_id=payment["id"],
+                    razorpay_order_id=payment.get("order_id", ""),
+                )
+                await tip.insert(session=session)
 
-  return res.status(200).json({ received: true });
-});
+                # 2. Credit creator wallet
+                creator = await Creator.get(PydanticObjectId(creator_id), session=session)
+                creator.wallet_balance += creator_share
+                await creator.save(session=session)
 
-export default router;
+                # 3. Record Sponsa revenue
+                revenue = SponSaRevenue(
+                    tip_id=tip.id,
+                    razorpay_payment_id=payment["id"],
+                    amount=sponsa_fee,
+                )
+                await revenue.insert(session=session)
+
+                print(f"✅ Tip processed: ₹{tip_amount} for creator {creator_id}")
+            except Exception as e:
+                print(f"❌ Tip processing failed: {e}")
+                raise
+
+    # Step 3: Handle payout events (withdrawals)
+    if event == "payout.processed":
+        payout = payload["payload"]["payout"]["entity"]
+        withdrawal = await Withdrawal.find_one(
+            Withdrawal.razorpay_payout_id == payout["id"]
+        )
+        if withdrawal:
+            withdrawal.status = "processed"
+            withdrawal.processed_at = datetime.utcnow()
+            await withdrawal.save()
+
+    if event in ("payout.failed", "payout.reversed"):
+        payout = payload["payload"]["payout"]["entity"]
+        withdrawal = await Withdrawal.find_one(
+            Withdrawal.razorpay_payout_id == payout["id"]
+        )
+        if withdrawal:
+            withdrawal.status = "failed"
+            withdrawal.failure_reason = payout.get("failure_reason")
+            await withdrawal.save()
+            # Refund wallet
+            creator = await Creator.get(withdrawal.creator_id)
+            if creator:
+                creator.wallet_balance += withdrawal.amount
+                await creator.save()
+
+    return {"received": True}
 ```
 
-### Register Webhook Route
+### Register in main.py
 
-```js
-// server/index.js — add BEFORE express.json()
-import razorpayWebhookRoutes from "./routes/razorpayWebhook.js";
-app.use("/api/webhooks/razorpay", razorpayWebhookRoutes);
+```python
+from routes.razorpay_webhook import router as razorpay_webhook_router
+app.include_router(razorpay_webhook_router)
 ```
 
 ### Configure in Razorpay Dashboard
@@ -340,121 +400,133 @@ app.use("/api/webhooks/razorpay", razorpayWebhookRoutes);
 
 ## Step 5 — Wallet & Withdrawal Routes
 
-```js
-// server/routes/wallet.js
-import { Router } from "express";
-import { requireAuth } from "@clerk/clerk-sdk-node";
-import mongoose from "mongoose";
-import { Creator } from "../models/Creator.js";
-import { Withdrawal } from "../models/Withdrawal.js";
-import { Tip } from "../models/Tip.js";
-// import { razorpayX } from "../lib/razorpay.js"; // Razorpay X client
+```python
+# server/routes/wallet.py
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional
 
-const router = Router();
-const Decimal128 = mongoose.Types.Decimal128;
+from beanie import PydanticObjectId
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
 
-// GET /api/wallet/balance
-router.get("/balance", requireAuth(), async (req, res) => {
-  const creator = await Creator.findOne({ clerkUserId: req.auth.userId });
-  if (!creator) return res.status(404).json({ error: "Creator not found" });
-  res.json({ balance: creator.walletBalance });
-});
+from models.creator import Creator
+from models.tip import Tip
+from models.withdrawal import Withdrawal
+from routes.auth import get_current_user_id
 
-// GET /api/wallet/tips — recent tip feed
-router.get("/tips", requireAuth(), async (req, res) => {
-  const creator = await Creator.findOne({ clerkUserId: req.auth.userId });
-  if (!creator) return res.status(404).json({ error: "Creator not found" });
-  const tips = await Tip.find({ creatorId: creator._id })
-    .sort({ timestamp: -1 })
-    .limit(50);
-  res.json(tips);
-});
+router = APIRouter(prefix="/api/wallet", tags=["wallet"])
 
-// POST /api/wallet/withdraw
-router.post("/withdraw", requireAuth(), async (req, res) => {
-  const { amount } = req.body;
-  if (!amount || amount < 100) {
-    return res.status(400).json({ error: "Minimum withdrawal is ₹100" });
-  }
 
-  const creator = await Creator.findOne({ clerkUserId: req.auth.userId });
-  if (!creator) return res.status(404).json({ error: "Creator not found" });
-  if (!creator.upiId) return res.status(400).json({ error: "No UPI ID set" });
+class WithdrawRequest(BaseModel):
+    amount: int = Field(ge=100, description="Minimum ₹100")
 
-  const balance = parseFloat(creator.walletBalance?.toString() || "0");
-  if (balance < amount) {
-    return res.status(400).json({ error: "Insufficient balance" });
-  }
 
-  // Deduct from wallet immediately
-  const session = await mongoose.startSession();
-  session.startTransaction();
+@router.get("/balance")
+async def get_balance(clerk_user_id: str = Depends(get_current_user_id)):
+    """Get creator's wallet balance."""
+    creator = await Creator.find_one(Creator.clerk_user_id == clerk_user_id)
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
+    return {"balance": float(creator.wallet_balance)}
 
-  try {
-    await Creator.findByIdAndUpdate(creator._id, {
-      $inc: { walletBalance: Decimal128.fromString((-amount).toString()) },
-    }, { session });
 
-    const withdrawal = await Withdrawal.create([{
-      creatorId: creator._id,
-      amount: Decimal128.fromString(amount.toString()),
-      upiId: creator.upiId,
-      status: "pending",
-      requestedAt: new Date(),
-    }], { session });
+@router.get("/tips")
+async def get_tips(clerk_user_id: str = Depends(get_current_user_id)):
+    """Get recent tip feed for dashboard."""
+    creator = await Creator.find_one(Creator.clerk_user_id == clerk_user_id)
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
+    tips = await Tip.find(
+        Tip.creator_id == creator.id
+    ).sort(-Tip.timestamp).limit(50).to_list()
+    return tips
 
-    await session.commitTransaction();
 
-    // TODO: Call Razorpay X Payout API here (see payments.md Step 7)
-    // On success, update withdrawal with razorpayPayoutId and status: "processing"
+@router.post("/withdraw")
+async def request_withdrawal(
+    body: WithdrawRequest,
+    clerk_user_id: str = Depends(get_current_user_id),
+):
+    """Request a withdrawal to creator's UPI."""
+    creator = await Creator.find_one(Creator.clerk_user_id == clerk_user_id)
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
+    if not creator.upi_id:
+        raise HTTPException(status_code=400, detail="No UPI ID set")
 
-    res.json({
-      message: "Withdrawal requested",
-      withdrawalId: withdrawal[0]._id,
-    });
-  } catch (err) {
-    await session.abortTransaction();
-    throw err;
-  } finally {
-    session.endSession();
-  }
-});
+    balance = float(creator.wallet_balance)
+    if balance < body.amount:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
 
-// GET /api/wallet/withdrawals — history
-router.get("/withdrawals", requireAuth(), async (req, res) => {
-  const creator = await Creator.findOne({ clerkUserId: req.auth.userId });
-  if (!creator) return res.status(404).json({ error: "Creator not found" });
-  const withdrawals = await Withdrawal.find({ creatorId: creator._id })
-    .sort({ requestedAt: -1 });
-  res.json(withdrawals);
-});
+    # Deduct from wallet atomically
+    session = await Creator.get_motor_collection().database.client.start_session()
+    async with session.start_transaction():
+        creator.wallet_balance -= Decimal(str(body.amount))
+        await creator.save(session=session)
 
-export default router;
+        withdrawal = Withdrawal(
+            creator_id=creator.id,
+            amount=Decimal(str(body.amount)),
+            upi_id=creator.upi_id,
+        )
+        await withdrawal.insert(session=session)
+
+    # TODO: Call Razorpay X Payout API here (see payments.md Step 7)
+    # On success, update withdrawal with razorpay_payout_id and status: "processing"
+
+    return {"message": "Withdrawal requested", "withdrawal_id": str(withdrawal.id)}
+
+
+@router.get("/withdrawals")
+async def get_withdrawals(clerk_user_id: str = Depends(get_current_user_id)):
+    """Get withdrawal history."""
+    creator = await Creator.find_one(Creator.clerk_user_id == clerk_user_id)
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
+    withdrawals = await Withdrawal.find(
+        Withdrawal.creator_id == creator.id
+    ).sort(-Withdrawal.requested_at).to_list()
+    return withdrawals
+```
+
+Register in `main.py`:
+
+```python
+from routes.wallet import router as wallet_router
+from routes.tip import router as tip_router
+
+app.include_router(tip_router)
+app.include_router(wallet_router)
 ```
 
 ---
 
 ## Step 6 — UPI Verification (Penny Drop)
 
-Before a creator's first withdrawal, verify their UPI ID:
+```python
+# In server/routes/creator.py — add this endpoint
 
-```js
-// POST /api/creator/verify-upi
-router.post("/verify-upi", requireAuth(), async (req, res) => {
-  const { upiId } = req.body;
-  if (!upiId) return res.status(400).json({ error: "UPI ID required" });
+@router.post("/verify-upi")
+async def verify_upi(
+    body: dict,
+    clerk_user_id: str = Depends(get_current_user_id),
+):
+    """Verify and save creator's UPI ID via Razorpay penny-drop."""
+    upi_id = body.get("upi_id")
+    if not upi_id:
+        raise HTTPException(status_code=400, detail="UPI ID required")
 
-  // TODO: Call Razorpay X VPA validation API
-  // See payments.md Section 5 for the exact API call
+    # TODO: Call Razorpay X VPA validation API
+    # See payments.md Section 5 for the exact API call
 
-  // On success, save the UPI ID
-  await Creator.findOneAndUpdate(
-    { clerkUserId: req.auth.userId },
-    { upiId }
-  );
+    creator = await Creator.find_one(Creator.clerk_user_id == clerk_user_id)
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
 
-  res.json({ message: "UPI ID verified and saved" });
-});
+    creator.upi_id = upi_id
+    await creator.save()
+    return {"message": "UPI ID verified and saved"}
 ```
 
 ---
@@ -480,7 +552,7 @@ router.post("/verify-upi", requireAuth(), async (req, res) => {
 - [ ] Razorpay checkout opens in frontend with test UPI
 - [ ] Webhook receives `payment.captured` → tip + wallet + revenue all updated
 - [ ] Duplicate webhook is idempotent (no double-credit)
-- [ ] `GET /api/wallet/balance` returns correct Decimal128 value
+- [ ] `GET /api/wallet/balance` returns correct Decimal value
 - [ ] `POST /api/wallet/withdraw` deducts balance atomically
 - [ ] Failed payout → wallet refunded automatically
 

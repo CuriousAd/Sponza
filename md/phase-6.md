@@ -8,23 +8,23 @@
 
 | Environment | Atlas Cluster | Database Name | URI Storage | Purpose |
 |-------------|--------------|---------------|-------------|---------|
-| **Local dev** | Same cluster (or M0 free) | `sponsa_dev` | `.env.local` (gitignored) | Development |
+| **Local dev** | Same cluster (or M0 free) | `sponsa_dev` | `.env` (gitignored) | Development |
 | **Staging** | Same M10 cluster | `sponsa_staging` | Hosting env vars | Pre-production testing |
 | **Production** | M10 Mumbai | `sponsa` | Hosting env vars **only** | Live users |
 
-> **Cost tip:** Use one M10 cluster with different database names (`sponsa_dev` / `sponsa_staging` / `sponsa`) to save credits vs. running multiple clusters.
+> **Cost tip:** Use one M10 cluster with different database names to save credits.
 
 ### Complete Environment Variables
 
 ```env
+# server/.env
 # === Database ===
-MONGODB_URI=mongodb+srv://sponsa_api:PASSWORD@cluster.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DB_NAME=sponsa          # or sponsa_dev for local
+MONGODB_URI=mongodb+srv://mathelet:PASSWORD@sponsa-prod.jarn7lk.mongodb.net/?appName=sponsa-prod
+MONGODB_DB_NAME=sponsa_dev
 
 # === Server ===
-PORT=3001
-FRONTEND_URL=https://sponsa.in  # or http://localhost:5173 for local
-NODE_ENV=production              # or development
+PORT=8000
+FRONTEND_URL=https://sponsa.in
 
 # === Clerk ===
 CLERK_SECRET_KEY=sk_live_...
@@ -52,48 +52,54 @@ VITE_API_URL=https://api.sponsa.in
 
 ## Step 2 — Security Hardening
 
-### 2.1 Database Security
+### 2.1 Rate Limiting
 
-| Rule | Implementation |
-|------|---------------|
-| Unique emails | Unique index on `waitlist.email` and `creators.email` |
-| Webhook idempotency | Unique `razorpayPaymentId` on `tips` — duplicate webhooks are no-ops |
-| Wallet atomicity | `$inc` in a MongoDB transaction (multi-doc: tips + creators + revenue) |
-| Money precision | `Decimal128` in all schemas — never JS `Number` for currency |
-| Least privilege | `readWrite` DB user for API; separate `read-only` user for analytics |
-
-### 2.2 API Security
-
-```js
-// Rate limiting — install: npm install express-rate-limit
-import rateLimit from "express-rate-limit";
-
-// Waitlist: 5 signups per IP per hour
-app.use("/api/waitlist", rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: { error: "Too many requests, try again later" },
-}));
-
-// Tip creation: 20 per IP per minute
-app.use("/api/tip/create-order", rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-}));
+```bash
+pip install slowapi
 ```
 
-### 2.3 Input Sanitization
+```python
+# server/main.py — add rate limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
-```js
-// Install: npm install xss
-import xss from "xss";
-
-// Sanitize donor name and message before DB insert
-const safeDonorName = xss(donorName, { whiteList: {} });  // strip all HTML
-const safeMessage = xss(message, { whiteList: {} });
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ```
 
-### 2.4 Security Checklist (from payments.md)
+```python
+# In routes — decorate endpoints
+from slowapi import Limiter
+from fastapi import Request
+
+@router.post("/")
+@limiter.limit("5/hour")  # waitlist: 5 per IP per hour
+async def join_waitlist(request: Request, body: WaitlistCreateRequest):
+    ...
+
+@router.post("/create-order")
+@limiter.limit("20/minute")  # tips: 20 per IP per minute
+async def create_order(request: Request, body: CreateOrderRequest):
+    ...
+```
+
+### 2.2 Input Sanitization
+
+```bash
+pip install bleach
+```
+
+```python
+# Sanitize donor name and message before DB insert
+import bleach
+
+safe_donor_name = bleach.clean(donor_name, tags=[], strip=True)
+safe_message = bleach.clean(message, tags=[], strip=True) if message else None
+```
+
+### 2.3 Security Checklist (from payments.md)
 
 - [ ] All webhook payloads verified with HMAC-SHA256 before processing
 - [ ] Razorpay secret keys in env vars, never in code
@@ -103,25 +109,13 @@ const safeMessage = xss(message, { whiteList: {} });
 - [ ] Minimum withdrawal (₹100) enforced server-side
 - [ ] Payout failures auto-refund creator wallet
 - [ ] Donor name and message sanitized (prevent XSS)
-- [ ] All amounts stored consistently (Decimal128)
+- [ ] All amounts stored as `Decimal` (not `float`)
 
 ---
 
 ## Step 3 — Atlas Monitoring & Alerts
 
-### 3.1 Built-in Metrics (free)
-
-Navigate to **Atlas → your cluster → Metrics** to monitor:
-
-| Metric | What to watch |
-|--------|--------------|
-| **Connections** | Should stay under 500 on M10 (max 1500) |
-| **Operations/sec** | Baseline for normal traffic |
-| **Document Reads/Writes** | Spikes during stream events |
-| **Disk IOPS** | Sustained high = need larger tier |
-| **Replication Lag** | Should be < 1 second |
-
-### 3.2 Set Up Alerts
+### 3.1 Set Up Alerts
 
 **Atlas → Alerts → Create Alert:**
 
@@ -133,54 +127,56 @@ Navigate to **Atlas → your cluster → Metrics** to monitor:
 | Replication lag | > 10 seconds | Email |
 | Credits low | 80% used | Email (set in Billing) |
 
-### 3.3 Performance Advisor
-
-- Atlas → **Performance Advisor** (available on M10+)
-- Reviews slow queries and suggests missing indexes
-- Check weekly after launch
-
-### 3.4 Backup Verification
-
-- M10 → **Cloud Backup** enabled by default
-- Verify snapshot schedule: **Atlas → Backup → Snapshot Schedule**
-- Recommended: every 6 hours, retain for 7 days
-- Test a restore to a temporary cluster once before launch
-
----
-
-## Step 4 — Atlas UI Day-One Checklist
+### 3.2 Day-One Atlas Checklist
 
 | # | Task | Where in Atlas |
 |---|------|---------------|
-| 4.1 | Browse collections — confirm `waitlist` after first POST | Database → Browse Collections |
-| 4.2 | Review indexes on each collection | Collections → Indexes tab |
-| 4.3 | Performance Advisor — check after first traffic | Performance Advisor (left nav) |
-| 4.4 | Set up alerts | Alerts (left nav) |
-| 4.5 | Confirm backup schedule | Backup → Snapshot Schedule |
-| 4.6 | Manual data editing (approve waitlist entries) | Data Explorer → Edit Document |
+| 1 | Browse collections — confirm `waitlist` after first POST | Database → Browse Collections |
+| 2 | Review indexes on each collection | Collections → Indexes tab |
+| 3 | Performance Advisor — check after first traffic | Performance Advisor (left nav) |
+| 4 | Set up alerts | Alerts (left nav) |
+| 5 | Confirm backup schedule (M10) | Backup → Snapshot Schedule |
 
-> **Tip:** Install [MongoDB Compass](https://www.mongodb.com/products/compass) (desktop app) with the same URI for visual editing and debugging.
+> **Tip:** Install [MongoDB Compass](https://www.mongodb.com/products/compass) for visual editing.
 
 ---
 
-## Step 5 — Deployment Options
+## Step 4 — Deployment
 
-### Backend API
+### Backend API (FastAPI)
 
-| Platform | Pros | Pricing | Best for |
-|----------|------|---------|----------|
-| **Railway** | Easy deploys, built-in env vars, fixed egress IPs | Free tier + $5/month hobby | MVP → production |
-| **Render** | Auto-deploy from Git, static IPs on paid | Free tier + $7/month | Simple deploys |
-| **Fly.io** | Edge deployment, Mumbai region available | Free tier + usage-based | Low-latency India |
-| **Vercel Serverless** | Already using for frontend | Free tier | If API is small |
+| Platform | Pros | Pricing |
+|----------|------|---------|
+| **Railway** | Easy deploys, fixed egress IPs, Python support | Free tier + $5/month |
+| **Render** | Auto-deploy from Git, static IPs on paid | Free tier + $7/month |
+| **Fly.io** | Edge deployment, Mumbai region available | Free tier + usage-based |
+
+### Deployment files
+
+```dockerfile
+# server/Dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+```
+# server/Procfile (for Railway/Render)
+web: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
 
 ### Frontend (Vite SPA)
 
 | Platform | Notes |
 |----------|-------|
-| **Vercel** | Zero-config Vite deploy, great DX |
+| **Vercel** | Zero-config Vite deploy |
 | **Netlify** | Similar to Vercel |
-| **Firebase Hosting** | If using Firebase elsewhere |
 
 ### Recommended Setup
 
@@ -192,16 +188,14 @@ Database: Atlas M10 Mumbai
 
 ---
 
-## Step 6 — Credit-Conscious Operations
+## Step 5 — Credit-Conscious Operations
 
 | Item | Guidance |
 |------|----------|
-| **One M10 cluster** | Dev + staging + prod DB names on same cluster until scale demands split |
-| **M0 for experiments** | Use for throwaway tests; migrate to M10 before webhooks |
-| **Data transfer** | Keep API in same region as cluster (Mumbai `ap-south-1`) to minimize transfer costs |
-| **Monitoring** | Built-in free metrics are sufficient; skip paid BI until needed |
-| **Atlas Search** | Not needed for waitlist or tipping |
-| **Charts / Realm** | Skip unless you build mobile sync |
+| **One M10 cluster** | Dev + staging + prod DB names on same cluster |
+| **M0 for experiments** | Throwaway tests only |
+| **Data transfer** | Keep API in same region as cluster (Mumbai) |
+| **Monitoring** | Built-in free metrics are sufficient |
 
 ### $500 Credit Math
 
@@ -209,26 +203,23 @@ Database: Atlas M10 Mumbai
 M10 Mumbai:     ~$57/month
 Duration:       $500 ÷ $57 ≈ 8.7 months
 With backups:   ~$60-65/month → ~7.5 months
-Network egress: Minimal if API is in same region
 ```
-
-> Confirm exact pricing in [Atlas Pricing Calculator](https://www.mongodb.com/pricing) for your specific configuration.
 
 ---
 
-## Step 7 — Implementation Timeline
+## Step 6 — Implementation Timeline
 
 ```
 Week 1 — Atlas + Waitlist
-  ├── Phase 1: Cluster, user, network (this takes ~1 hour)
-  ├── Phase 2: waitlist collection + indexes
-  ├── Phase 3: Express API + POST /api/waitlist
-  └── Manual approve in Compass / Data Explorer
+  ├── Phase 1: Cluster, user, network
+  ├── Phase 2: Collections + indexes
+  ├── Phase 3: FastAPI + POST /api/waitlist
+  └── Manual approve in Compass
 
 Week 2 — Clerk + Creators
   ├── Phase 4: Clerk setup, webhook, creator collection
-  ├── Dashboard reads creator by clerkUserId
-  └── Admin approval flow (API or manual)
+  ├── Dashboard reads creator by clerk_user_id
+  └── Admin approval flow
 
 Week 3+ — Payments
   ├── Phase 5: Razorpay integration
@@ -240,15 +231,13 @@ Week 3+ — Payments
 
 ## Final Verification: End-to-End Flow
 
-After all phases are complete, verify the full flow:
-
-- [ ] **Waitlist:** Viewer signs up → doc appears in Atlas → admin approves
-- [ ] **Onboarding:** Approved creator receives Clerk invite → signs up → creator doc created
-- [ ] **Dashboard:** Creator logs in → sees wallet balance, tip feed, copy link
-- [ ] **Tipping:** Viewer visits `sponsa.in/{slug}` → enters tip → Razorpay checkout → pays
-- [ ] **Webhook:** `payment.captured` → tip recorded → wallet credited → revenue tracked
-- [ ] **Withdrawal:** Creator requests withdrawal → wallet deducted → Razorpay X payout → money received
-- [ ] **Security:** Duplicate webhook = no-op, bad signature = rejected, rate limits active
+- [ ] **Waitlist:** Creator signs up → doc in Atlas → admin approves
+- [ ] **Onboarding:** Clerk invite → signup → creator doc created
+- [ ] **Dashboard:** Creator logs in → wallet balance, tip feed, copy link
+- [ ] **Tipping:** Viewer visits `sponsa.in/{slug}` → Razorpay checkout → pays
+- [ ] **Webhook:** `payment.captured` → tip + wallet + revenue updated
+- [ ] **Withdrawal:** Creator requests → wallet deducted → Razorpay X payout
+- [ ] **Security:** Duplicate webhook = no-op, bad signature = rejected
 - [ ] **Monitoring:** Atlas alerts configured, backups running
 
 ---
@@ -257,20 +246,18 @@ After all phases are complete, verify the full flow:
 
 | Feature | When to add |
 |---------|------------|
-| Second cluster per environment | When traffic demands isolation |
-| Sharding | When you exceed M10 capacity (~10k ops/sec) |
-| Atlas Data Lake / Online Archive | When tip history retention matters |
-| Direct browser → MongoDB access | **Never** — always go through your API |
-| Atlas App Services (Realm) | Only if building mobile sync |
-| MongoDB Atlas Search | Only if adding full-text search |
+| Second cluster | When traffic demands isolation |
+| Sharding | When you exceed M10 capacity |
+| Atlas Data Lake | When tip history retention matters |
+| Browser → MongoDB directly | **Never** — always via API |
 
 ---
 
 > 📚 **Reference docs:**
 > - [sponsa.md](./sponsa.md) — Product blueprint
-> - [payments.md](./payments.md) — Detailed payments architecture
+> - [payments.md](./payments.md) — Payments architecture
 > - [Phase 1](./phase-1.md) — Atlas setup
 > - [Phase 2](./phase-2.md) — Collections & schemas
-> - [Phase 3](./phase-3.md) — Backend API scaffold
+> - [Phase 3](./phase-3.md) — FastAPI backend scaffold
 > - [Phase 4](./phase-4.md) — Clerk authentication
 > - [Phase 5](./phase-5.md) — Razorpay payments
