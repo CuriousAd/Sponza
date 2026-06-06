@@ -1,6 +1,6 @@
-# Phase 3 — Backend API Scaffold & Waitlist Endpoint
+# Phase 3 — Backend API Scaffold & Cashfree Client Setup
 
-> **Goal:** A working FastAPI + Motor/Beanie backend with a `POST /api/waitlist` endpoint connected to your Atlas cluster.
+> **Goal:** A working FastAPI project structure with database connection, configuration settings, and a fully asynchronous Cashfree API wrapper using `httpx`.
 
 ---
 
@@ -8,54 +8,54 @@
 
 ```
 sponza-tip-it-now/
-├── src/                        # Vite frontend (existing)
-├── server/                     # NEW — FastAPI backend
-│   ├── main.py                 # FastAPI entry point
-│   ├── db.py                   # Motor/Beanie connection
-│   ├── config.py               # Settings via pydantic-settings
+├── server/
+│   ├── main.py                 # FastAPI entry point & lifespan context
+│   ├── db.py                   # Motor / Beanie initialization
+│   ├── config.py               # Application settings (Pydantic Settings)
 │   ├── models/
 │   │   ├── __init__.py
-│   │   ├── waitlist.py         # Waitlist Beanie document
-│   │   ├── creator.py          # Creator document
-│   │   ├── tip.py              # Tip document
-│   │   ├── withdrawal.py       # Withdrawal document
-│   │   └── revenue.py          # SponSa revenue document
+│   │   ├── creator.py
+│   │   ├── tip.py
+│   │   ├── withdrawal.py
+│   │   ├── revenue.py
+│   │   └── webhook_event.py
 │   ├── routes/
 │   │   ├── __init__.py
-│   │   └── waitlist.py         # Waitlist API routes
-│   ├── schemas/
+│   │   └── webhooks/
+│   │       └── cashfree.py     # Inbound payment webhook handler
+│   ├── services/
 │   │   ├── __init__.py
-│   │   └── waitlist.py         # Request/response Pydantic models
-│   ├── requirements.txt
-│   └── .env                    # Local env vars (gitignored)
+│   │   └── cashfree.py         # Async Cashfree client
+│   └── requirements.txt
 ├── package.json
 └── ...
 ```
 
 ---
 
-## Step 1 — Initialize the Server
+## Step 1 — Project Initialization & Requirements
 
-```bash
-# From project root
-mkdir -p server/models server/routes server/schemas
-touch server/models/__init__.py server/routes/__init__.py server/schemas/__init__.py
-```
-
-### Create `server/requirements.txt`
+Create the server directory and set up `server/requirements.txt`:
 
 ```txt
 fastapi==0.115.*
+gunicorn==22.*
 uvicorn[standard]==0.34.*
+uvloop==0.21.*
 motor==3.7.*
 beanie==1.27.*
 pydantic[email]==2.*
 pydantic-settings==2.*
 python-dotenv==1.*
+httpx==0.28.*
+authlib==1.6.*
+pyjwt==2.*
+tenacity==9.*
+slowapi==0.1.*
+bleach==6.*
 ```
 
-### Install dependencies
-
+Install the packages:
 ```bash
 cd server
 pip install -r requirements.txt
@@ -63,22 +63,44 @@ pip install -r requirements.txt
 
 ---
 
-## Step 2 — Configuration
+## Step 2 — Configuration Settings
+
+Set up `server/config.py` using `pydantic-settings` to parse configuration variables from `.env`:
 
 ```python
 # server/config.py
 from pydantic_settings import BaseSettings
 
-
 class Settings(BaseSettings):
+    # MongoDB
     mongodb_uri: str
     mongodb_db_name: str = "sponsa_dev"
+
+    # Server
     port: int = 8000
     frontend_url: str = "http://localhost:5173"
+    jwt_secret: str
+    jwt_algorithm: str = "HS256"
+
+    # Google OAuth
+    google_client_id: str
+    google_client_secret: str
+    google_redirect_uri: str = "http://localhost:8000/api/auth/callback"
+
+    # Cashfree PG
+    cashfree_client_id: str
+    cashfree_client_secret: str
+    cashfree_webhook_secret: str
+    cashfree_api_version: str = "2025-01-01"
+    cashfree_base_url: str = "https://sandbox.cashfree.com/pg"
+
+    # Cashfree Payouts
+    cashfree_payout_client_id: str = ""
+    cashfree_payout_client_secret: str = ""
+    cashfree_payout_base_url: str = "https://payout-gamma.cashfree.com/payout"
 
     class Config:
         env_file = ".env"
-
 
 settings = Settings()
 ```
@@ -87,32 +109,32 @@ settings = Settings()
 
 ## Step 3 — Database Connection
 
+Initialize the connection using Motor and Beanie ODM:
+
 ```python
 # server/db.py
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
-
 from config import settings
-from models.waitlist import Waitlist
+
 from models.creator import Creator
 from models.tip import Tip
 from models.withdrawal import Withdrawal
 from models.revenue import SponSaRevenue
-
+from models.webhook_event import WebhookEvent
 
 async def connect_db():
-    """Initialize Motor client and Beanie ODM."""
     client = AsyncIOMotorClient(settings.mongodb_uri)
     db = client[settings.mongodb_db_name]
 
     await init_beanie(
         database=db,
         document_models=[
-            Waitlist,
             Creator,
             Tip,
             Withdrawal,
             SponSaRevenue,
+            WebhookEvent,
         ],
     )
     print(f"✅ Connected to MongoDB: {settings.mongodb_db_name}")
@@ -121,160 +143,128 @@ async def connect_db():
 
 ---
 
-## Step 4 — Waitlist Model
+## Step 4 — Asynchronous Cashfree API Client Wrapper
+
+Create a client utilizing `httpx` to communicate asynchronously with Cashfree's endpoint, avoiding event-loop blocking:
 
 ```python
-# server/models/waitlist.py
-from datetime import datetime
-from enum import Enum
-from typing import Optional
+# server/services/cashfree.py
+import httpx
+from config import settings
 
-from beanie import Document, Indexed
-from pydantic import EmailStr, Field
+class CashfreeClient:
+    def __init__(self):
+        self.headers = {
+            "x-client-id": settings.cashfree_client_id,
+            "x-client-secret": settings.cashfree_client_secret,
+            "x-api-version": settings.cashfree_api_version,
+            "Content-Type": "application/json",
+        }
+        self.payout_headers = {
+            "x-client-id": settings.cashfree_payout_client_id or settings.cashfree_client_id,
+            "x-client-secret": settings.cashfree_payout_client_secret or settings.cashfree_client_secret,
+            "Content-Type": "application/json",
+        }
+        self.base_url = settings.cashfree_base_url
+        self.payout_url = settings.cashfree_payout_base_url
 
+    async def create_order(self, order_id: str, amount: float, customer_name: str, vendor_id: str, split_pct: float = 90.0):
+        """Create a payment session order with static EasySplit split mapping."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            payload = {
+                "order_id": order_id,
+                "order_amount": amount,
+                "order_currency": "INR",
+                "customer_details": {
+                    "customer_id": f"cust_{order_id}",
+                    "customer_name": customer_name,
+                    "customer_phone": "9999999999" # Placeholder required parameter
+                },
+                "order_splits": [
+                    {
+                        "vendor_id": vendor_id,
+                        "percentage": split_pct
+                    }
+                ]
+            }
+            resp = await client.post(
+                f"{self.base_url}/orders",
+                json=payload,
+                headers=self.headers
+            )
+            resp.raise_for_status()
+            return resp.json()
 
-class WaitlistStatus(str, Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
+    async def create_vendor(self, vendor_id: str, name: str, email: str, upi_vpa: str, kyc_details: dict):
+        """Onboard a new creator as a Cashfree EasySplit vendor."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            payload = {
+                "vendor_id": vendor_id,
+                "name": name,
+                "email": email,
+                "phone": kyc_details.get("phone", "9999999999"),
+                "upi": upi_vpa,
+                "kyc_details": kyc_details
+            }
+            resp = await client.post(
+                f"{self.base_url}/easy-split/vendors",
+                json=payload,
+                headers=self.headers
+            )
+            resp.raise_for_status()
+            return resp.json()
 
+    async def initiate_payout(self, vendor_id: str, amount: float, upi_vpa: str, transfer_id: str):
+        """Send funds instantly from vendor's Virtual Vault to their UPI address."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            payload = {
+                "beneId": vendor_id,
+                "amount": amount,
+                "transferId": transfer_id,
+                "transferMode": "upi",
+                "beneDetails": {
+                    "vpa": upi_vpa
+                }
+            }
+            resp = await client.post(
+                f"{self.payout_url}/v1/directTransfer",
+                json=payload,
+                headers=self.payout_headers
+            )
+            resp.raise_for_status()
+            return resp.json()
 
-class Waitlist(Document):
-    email: Indexed(EmailStr, unique=True)
-    name: str = Field(max_length=100)
-    youtube_url: str
-    message: Optional[str] = Field(default=None, max_length=500)
-    status: WaitlistStatus = WaitlistStatus.PENDING
-
-    approved_at: Optional[datetime] = None
-    approved_by: Optional[str] = None
-    clerk_invitation_id: Optional[str] = None
-    clerk_user_id: Optional[str] = None
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Settings:
-        name = "waitlist"
-        indexes = [
-            [("status", 1), ("created_at", -1)],
-            [("created_at", -1)],
-        ]
+cashfree_client = CashfreeClient()
 ```
 
 ---
 
-## Step 5 — Request/Response Schemas
+## Step 5 — FastAPI Entry Point
 
-```python
-# server/schemas/waitlist.py
-from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, HttpUrl
-
-
-class WaitlistCreateRequest(BaseModel):
-    email: EmailStr
-    name: str = Field(min_length=1, max_length=100)
-    youtube_url: HttpUrl
-    message: Optional[str] = Field(default=None, max_length=500)
-
-
-class WaitlistCreateResponse(BaseModel):
-    message: str
-    id: str
-
-
-class WaitlistCheckResponse(BaseModel):
-    exists: bool
-    status: Optional[str] = None
-
-
-class ErrorResponse(BaseModel):
-    error: str
-```
-
----
-
-## Step 6 — Waitlist Routes
-
-```python
-# server/routes/waitlist.py
-from fastapi import APIRouter, HTTPException, Query
-from pymongo.errors import DuplicateKeyError
-
-from models.waitlist import Waitlist
-from schemas.waitlist import (
-    WaitlistCreateRequest,
-    WaitlistCreateResponse,
-    WaitlistCheckResponse,
-)
-
-router = APIRouter(prefix="/api/waitlist", tags=["waitlist"])
-
-
-@router.post("/", response_model=WaitlistCreateResponse, status_code=201)
-async def join_waitlist(body: WaitlistCreateRequest):
-    """Add a new creator to the waitlist."""
-    try:
-        entry = Waitlist(
-            email=body.email,
-            name=body.name,
-            youtube_url=str(body.youtube_url),
-            message=body.message,
-        )
-        await entry.insert()
-        return WaitlistCreateResponse(
-            message="You're on the waitlist!",
-            id=str(entry.id),
-        )
-    except DuplicateKeyError:
-        raise HTTPException(
-            status_code=409,
-            detail="This email is already on the waitlist.",
-        )
-
-
-@router.get("/check", response_model=WaitlistCheckResponse)
-async def check_waitlist(email: str = Query(..., description="Email to check")):
-    """Check if an email is already on the waitlist."""
-    entry = await Waitlist.find_one(Waitlist.email == email.lower())
-    return WaitlistCheckResponse(
-        exists=entry is not None,
-        status=entry.status if entry else None,
-    )
-```
-
----
-
-## Step 7 — FastAPI Entry Point
+Define the root app server utilizing FastAPI lifespan contexts:
 
 ```python
 # server/main.py
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from config import settings
 from db import connect_db
-from routes.waitlist import router as waitlist_router
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: connect to MongoDB. Shutdown: cleanup."""
+    # Connect database
     client = await connect_db()
     yield
+    # Cleanup database connection
     client.close()
-
 
 app = FastAPI(
     title="Sponsa API",
-    version="0.1.0",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url],
@@ -283,10 +273,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routes
-app.include_router(waitlist_router)
-
-
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -294,131 +280,16 @@ async def health():
 
 ---
 
-## Step 8 — Environment File
-
-```env
-# server/.env
-MONGODB_URI=mongodb+srv://mathelet:$sponsa$12@sponsa-prod.jarn7lk.mongodb.net/?appName=sponsa-prod
-MONGODB_DB_NAME=sponsa_dev
-PORT=8000
-FRONTEND_URL=http://localhost:5173
-```
-
-> ⚠️ Add `.env` to your `.gitignore`. Never commit secrets.
-
-### Create `server/.env.example` for reference
-
-```env
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DB_NAME=sponsa_dev
-PORT=8000
-FRONTEND_URL=http://localhost:5173
-```
-
----
-
-## Step 9 — Update .gitignore
-
-Add to the project root `.gitignore`:
-
-```
-# Server env
-server/.env
-!server/.env.example
-__pycache__/
-*.pyc
-```
-
----
-
-## Step 10 — Run & Test
-
-### Start the server
-
-```bash
-cd server
-uvicorn main:app --reload --port 8000
-```
-
-### Test waitlist signup
-
-```bash
-curl -X POST http://localhost:8000/api/waitlist/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "name": "Test Creator",
-    "youtube_url": "https://youtube.com/@test",
-    "message": "Excited to try Sponsa!"
-  }'
-
-# Expected: 201 { "message": "You're on the waitlist!", "id": "..." }
-```
-
-### Test duplicate
-
-```bash
-curl -X POST http://localhost:8000/api/waitlist/ \
-  -H "Content-Type: application/json" \
-  -d '{ "email": "test@example.com", "name": "Test", "youtube_url": "https://youtube.com/@test" }'
-
-# Expected: 409 { "detail": "This email is already on the waitlist." }
-```
-
-### Interactive API docs
-
-Open **http://localhost:8000/docs** — FastAPI auto-generates Swagger UI for all your endpoints.
-
----
-
-## Step 11 — Verify in Atlas
-
-1. Go to Atlas → **Browse Collections**
-2. Database: `sponsa_dev` → Collection: `waitlist`
-3. You should see your test document
-4. Check **Indexes** tab — confirm `email_1` unique index exists
-
----
-
-## Connecting Frontend (Vite) to Backend
-
-```ts
-// src/api/waitlist.ts
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-export async function joinWaitlist({ email, name, youtubeUrl, message }: {
-  email: string; name: string; youtubeUrl: string; message?: string;
-}) {
-  const res = await fetch(`${API_URL}/api/waitlist/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, name, youtube_url: youtubeUrl, message }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || "Failed to join waitlist");
-  return data;
-}
-```
-
-Add to Vite's `.env`:
-
-```env
-VITE_API_URL=http://localhost:8000
-```
-
----
-
 ## Verification Checklist
 
-- [ ] `uvicorn main:app --reload` starts server on port 8000
-- [ ] `POST /api/waitlist/` returns 201 with valid data
-- [ ] Duplicate email returns 409
-- [ ] Invalid data (missing name) returns 422 with Pydantic errors
-- [ ] Document visible in Atlas Data Explorer
-- [ ] `.env` is gitignored
-- [ ] Frontend can call the API without CORS errors
-- [ ] **http://localhost:8000/docs** shows Swagger UI
+- [ ] Requirements.txt contains async packages (`httpx`, `uvloop`)
+- [ ] Connection wrapper successfully connects to MongoDB
+- [ ] Configuration parameters parsed successfully from `.env`
+- [ ] `CashfreeClient.create_order` endpoint returns a sandbox payment session successfully
+- [ ] `/health` returns `{ "status": "ok" }`
 
 ---
 
-→ **[Phase 4](./phase-4.md)** — Clerk authentication, creator onboarding, and the admin approval flow.
+## What's Next
+
+→ **[Phase 4](./phase-4.md)** — Google OAuth authentication and direct onboard creation.

@@ -1,6 +1,6 @@
 # Phase 2 — Collections, Schemas & Indexes
 
-> **Goal:** Define every MongoDB collection Sponsa needs, with document shapes, Pydantic/Beanie models, indexes, and validation.
+> **Goal:** Define every MongoDB collection Sponsa needs, with document shapes, Beanie models, indexes, and concurrency validations.
 
 ---
 
@@ -8,237 +8,196 @@
 
 | Collection | Build When | Purpose |
 |------------|-----------|---------|
-| `waitlist` | **Week 1** | Creator signups before launch |
-| `creators` | **Week 2** (Clerk) | Approved creators with wallet |
-| `tips` | **Week 3+** (payments) | Individual tip records |
-| `withdrawals` | **Week 3+** (payments) | Creator payout requests |
-| `sponsa_revenue` | **Week 3+** (payments) | Platform fee tracking |
-
-### SQL → MongoDB Mapping (from payments.md)
-
-| payments.md table | MongoDB collection | Key difference |
-|---|---|---|
-| `users` | `creators` | Added Clerk fields, slug |
-| `tips` | `tips` | TTL index for 72h auto-delete |
-| `withdrawals` | `withdrawals` | Same structure |
-| `sponsa_revenue` | `sponsa_revenue` | Same structure |
-| *(new)* | `waitlist` | Pre-launch, not in payments.md |
+| `creators` | **Week 1** | Creator documents with OAuth fields & wallet balance |
+| `tips` | **Week 2** | Individual tip records (permanent storage) |
+| `withdrawals` | **Week 2** | Creator payout requests (processed via Payouts) |
+| `sponsa_revenue` | **Week 2** | Platform fee ledger |
+| `webhook_events` | **Week 1** | Raw webhook audit log for strict idempotency |
 
 ---
 
 ## Python Stack for MongoDB
 
-| Tool | Purpose |
-|------|---------|
-| **Motor** | Async MongoDB driver (wraps pymongo for asyncio) |
-| **Beanie** | Async ODM built on Motor + Pydantic |
-| **Pydantic** | Data validation (built into FastAPI) |
+- **Motor:** Async MongoDB driver wrapping pymongo.
+- **Beanie:** Async ODM built on Motor + Pydantic.
+- **Pydantic:** Data validation (built into FastAPI).
 
 ```bash
-pip install motor beanie pydantic
+pip install motor beanie pydantic[email]
 ```
 
 ---
 
-## 1. `waitlist` — Build First
+## 1. `webhook_events` (Strict Idempotency Log)
 
-### Document Shape
+To prevent processing duplicate webhooks under load, every webhook is logged first.
 
+### Document Schema
 ```json
 {
   "_id": "ObjectId",
-  "email": "creator@example.com",
-  "name": "Ronak",
-  "youtube_url": "https://youtube.com/@ronak",
-  "message": "optional",
+  "source": "cashfree",
+  "event_type": "order.payment.captured",
+  "cashfree_payment_id": "cf_pay_99182398123",
+  "payload": { ... },
   "status": "pending",
-  "created_at": "ISODate",
-  "updated_at": "ISODate",
-  "approved_at": null,
-  "approved_by": null,
-  "clerk_invitation_id": null,
-  "clerk_user_id": null
+  "attempts": 1,
+  "last_error": null,
+  "received_at": "ISODate",
+  "processed_at": null
 }
 ```
 
-### Indexes
-
-```js
-db.waitlist.createIndex({ email: 1 }, { unique: true });           // no duplicates
-db.waitlist.createIndex({ status: 1, createdAt: -1 });             // admin: pending first
-db.waitlist.createIndex({ createdAt: -1 });                        // recent signups
-```
-
 ### Beanie Model
-
 ```python
-# server/models/waitlist.py
+# server/models/webhook_event.py
 from datetime import datetime
-from enum import Enum
 from typing import Optional
-
 from beanie import Document, Indexed
-from pydantic import EmailStr, Field
 
-
-class WaitlistStatus(str, Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-
-
-class Waitlist(Document):
-    email: Indexed(EmailStr, unique=True)
-    name: str = Field(max_length=100)
-    youtube_url: str
-    message: Optional[str] = Field(default=None, max_length=500)
-    status: WaitlistStatus = WaitlistStatus.PENDING
-
-    approved_at: Optional[datetime] = None
-    approved_by: Optional[str] = None
-    clerk_invitation_id: Optional[str] = None
-    clerk_user_id: Optional[str] = None
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+class WebhookEvent(Document):
+    source: str
+    event_type: str
+    cashfree_payment_id: Indexed(str, unique=True)
+    payload: dict
+    status: str = "pending"  # pending, processing, done, failed
+    attempts: int = 0
+    last_error: Optional[str] = None
+    received_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: Optional[datetime] = None
 
     class Settings:
-        name = "waitlist"
+        name = "webhook_events"
         indexes = [
-            [("status", 1), ("created_at", -1)],
-            [("created_at", -1)],
+            [("status", 1), ("received_at", 1)],
         ]
 ```
 
 ---
 
-## 2. `creators` — When Clerk Goes Live
+## 2. `creators`
 
-### Document Shape
+On Google OAuth signup, a creator document is initialized.
 
+### Document Schema
 ```json
 {
   "_id": "ObjectId",
-  "clerk_user_id": "user_2abc123",
+  "google_id": "google_102839182",
   "email": "creator@example.com",
   "slug": "ronak",
   "display_name": "Ronak",
-  "avatar_url": null,
-  "youtube_url": "https://youtube.com/@ronak",
+  "avatar_url": "https://lh3.googleusercontent.com/...",
+  "youtube_url": null,
+  "cashfree_vendor_id": "vend_ronak_123",
   "upi_id": null,
+  "upi_verified": false,
   "wallet_balance": "Decimal128(0.00)",
-  "approved": true,
+  "obs_token": "random_32_char_hex_token",
   "created_at": "ISODate",
   "updated_at": "ISODate"
 }
 ```
 
 ### Beanie Model
-
 ```python
 # server/models/creator.py
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-
 from beanie import Document, Indexed
 from pydantic import EmailStr, Field
 
-
 class Creator(Document):
-    clerk_user_id: Indexed(str, unique=True)
+    google_id: Indexed(str, unique=True)
     email: Indexed(EmailStr, unique=True)
-    slug: Indexed(str, unique=True)  # sponsa.in/{slug}
+    slug: Indexed(str, unique=True)
     display_name: str
     avatar_url: Optional[str] = None
     youtube_url: Optional[str] = None
+
+    # Cashfree EasySplit & Payouts
+    cashfree_vendor_id: Optional[str] = None
     upi_id: Optional[str] = None
+    upi_verified: bool = False
+
+    # Virtual Wallet Ledger (matches Cashfree Vault balance)
     wallet_balance: Decimal = Decimal("0.00")
-    approved: bool = True
-    onboarded_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # OBS WebSocket Auth
+    obs_token: Indexed(str, unique=True)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
         name = "creators"
-        bson_encoders = {
-            Decimal: lambda v: Decimal(str(v))  # store as Decimal128
-        }
-```
-
-### Link Flow: Waitlist → Creator
-
-```
-waitlist (status: "approved")
-  → admin approves → send Clerk invitation
-  → creator signs up via Clerk
-  → Clerk webhook: user.created → upsert creators doc
-  → creator is live at sponsa.in/{slug}
 ```
 
 ---
 
-## 3. `tips` — Payments Phase
+## 3. `tips`
+
+Recorded when a payment is captured. Permanently stored for audits.
+
+### Document Schema
+```json
+{
+  "_id": "ObjectId",
+  "creator_id": "ObjectId",
+  "donor_name": "Raj",
+  "message": "Love your content!",
+  "amount": "Decimal128(100.00)",
+  "creator_share": "Decimal128(90.00)",
+  "sponsa_fee": "Decimal128(10.00)",
+  "cashfree_payment_id": "cf_pay_99182398123",
+  "cashfree_order_id": "sponsa_ord_234872938",
+  "timestamp": "ISODate"
+}
+```
 
 ### Beanie Model
-
 ```python
 # server/models/tip.py
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-
 from beanie import Document, Indexed, PydanticObjectId
 from pydantic import Field
 
-
 class Tip(Document):
     creator_id: Indexed(PydanticObjectId)
-    donor_name: str = Field(max_length=100)
-    message: Optional[str] = Field(default=None, max_length=500)
-
-    # Money — always use Decimal for currency
+    donor_name: str = Field(max_length=30)
+    message: Optional[str] = Field(default=None, max_length=150)
     amount: Decimal
-    creator_share: Decimal       # 90%
-    sponsa_fee: Decimal          # 10%
-
-    # Razorpay references
-    razorpay_payment_id: Indexed(str, unique=True)
-    razorpay_order_id: str
-    session_id: Optional[str] = None
-
+    creator_share: Decimal
+    sponsa_fee: Decimal
+    cashfree_payment_id: Indexed(str, unique=True)
+    cashfree_order_id: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: datetime = Field(
-        default_factory=lambda: datetime.utcnow() + timedelta(hours=72)
-    )
 
     class Settings:
         name = "tips"
         indexes = [
-            [("creator_id", 1), ("timestamp", -1)],  # dashboard feed
-            # TTL index — auto-delete after 72h
-            # NOTE: TTL index must be created via mongosh (already done in Phase 2 setup)
+            [("creator_id", 1), ("timestamp", -1)],
         ]
 ```
-
-> **TTL explained:** The `expires_at` + TTL index means MongoDB auto-deletes tip docs ~72h after creation. No cron needed.
-
-> ⚠️ If you need tip history for tax/analytics, skip the TTL index and archive manually.
 
 ---
 
 ## 4. `withdrawals`
 
+Tracks manual withdrawal requests routed via Cashfree Payouts.
+
+### Beanie Model
 ```python
 # server/models/withdrawal.py
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Optional
-
 from beanie import Document, Indexed, PydanticObjectId
 from pydantic import Field
-
 
 class WithdrawalStatus(str, Enum):
     PENDING = "pending"
@@ -246,12 +205,11 @@ class WithdrawalStatus(str, Enum):
     PROCESSED = "processed"
     FAILED = "failed"
 
-
 class Withdrawal(Document):
     creator_id: Indexed(PydanticObjectId)
     amount: Decimal
     upi_id: str
-    razorpay_payout_id: Optional[str] = None  # sparse unique
+    cashfree_transfer_id: Optional[str] = None
     status: WithdrawalStatus = WithdrawalStatus.PENDING
     failure_reason: Optional[str] = None
     requested_at: datetime = Field(default_factory=datetime.utcnow)
@@ -261,7 +219,6 @@ class Withdrawal(Document):
         name = "withdrawals"
         indexes = [
             [("creator_id", 1), ("requested_at", -1)],
-            # razorpay_payout_id unique sparse — created via mongosh
         ]
 ```
 
@@ -269,18 +226,19 @@ class Withdrawal(Document):
 
 ## 5. `sponsa_revenue`
 
+Tracks platform fees collected by Sponsa.
+
+### Beanie Model
 ```python
 # server/models/revenue.py
 from datetime import datetime
 from decimal import Decimal
-
 from beanie import Document, Indexed, PydanticObjectId
 from pydantic import Field
 
-
 class SponSaRevenue(Document):
     tip_id: Indexed(PydanticObjectId, unique=True)
-    razorpay_payment_id: str
+    cashfree_payment_id: str
     amount: Decimal
     recorded_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -293,62 +251,31 @@ class SponSaRevenue(Document):
 
 ---
 
-## Critical: Money Type & Transactions
+## Atomic Storage Engine Increments (Concurrency Safeguard)
 
-### Why Decimal (not float)
-
-```python
-# ❌ Float: 0.1 + 0.2 = 0.30000000000000004
-# ✅ Decimal: exact decimal arithmetic for money
-
-from decimal import Decimal
-wallet_balance = Decimal("90.00")
-```
-
-Beanie/Motor stores Python `Decimal` as MongoDB `Decimal128` automatically.
-
-### Multi-Document Transactions (wallet updates)
-
-When a tip arrives, update 3 collections atomically:
+To prevent write conflicts and balance corruption during viral stream tipping spikes, **do not** use read-modify-write. Update the balance field utilizing MongoDB's atomic `$inc` operator:
 
 ```python
-from motor.motor_asyncio import AsyncIOMotorClient
+from bson import Decimal128
 
-async def process_tip(tip_data: dict, creator_id: str, creator_share: Decimal, sponsa_fee: Decimal):
-    client: AsyncIOMotorClient = Tip.get_motor_collection().database.client
-
-    async with await client.start_session() as session:
-        async with session.start_transaction():
-            # 1. Insert tip
-            tip = Tip(**tip_data)
-            await tip.insert(session=session)
-
-            # 2. Credit creator wallet
-            creator = await Creator.get(creator_id, session=session)
-            creator.wallet_balance += creator_share
-            await creator.save(session=session)
-
-            # 3. Record Sponsa revenue
-            revenue = SponSaRevenue(
-                tip_id=tip.id,
-                razorpay_payment_id=tip.razorpay_payment_id,
-                amount=sponsa_fee,
-            )
-            await revenue.insert(session=session)
+await Creator.get_motor_collection().update_one(
+    {"_id": creator_id},
+    {"$inc": {"wallet_balance": Decimal128(str(creator_share))}}
+)
 ```
-
-> ⚠️ Transactions require a replica set (Atlas M0+ all have this).
 
 ---
 
 ## Verification Checklist
 
-- [ ] `waitlist` collection: unique email index → duplicate returns error `11000`
-- [ ] `creators` uses `Decimal` for `wallet_balance` (stored as `Decimal128`)
-- [ ] TTL index on `tips.expiresAt` with `expireAfterSeconds: 0`
-- [ ] All indexes visible in Atlas → Collections → Indexes tab
-- [ ] Beanie models match document shapes above
+- [ ] Unique index constraints verified on `webhook_events.cashfree_payment_id`
+- [ ] Unique index constraints verified on `creators.google_id` and `creators.slug`
+- [ ] Wallet balance uses MongoDB `Decimal128` matching python's `Decimal` type
+- [ ] Index created on `tips` (compounded creator_id + timestamp) for dashboard feed performance
+- [ ] Verified that **no** TTL index is present on the `tips` collection
 
 ---
 
-→ **[Phase 3](./phase-3.md)** — Backend API scaffold and waitlist endpoint.
+## What's Next
+
+→ **[Phase 3](./phase-3.md)** — Backend API Scaffold, Database Connection, and Cashfree Client wrapper.
