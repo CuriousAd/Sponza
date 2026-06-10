@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import CreatorDashboard from "./components/CreatorDashboard";
 import TipPage from "./components/TipPage";
 import AuthPage from "./components/AuthPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -19,7 +20,14 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<CreatorDashboard />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <CreatorDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/tip/:username" element={<TipPage />} />
           <Route path="/login" element={<AuthPage type="login" />} />
           <Route path="/signup" element={<AuthPage type="signup" />} />
