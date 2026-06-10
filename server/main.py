@@ -7,6 +7,9 @@ from starlette.middleware.sessions import SessionMiddleware
 from config import settings
 from db import connect_db
 from routes.auth import router as auth_router
+from routes.tip import router as tip_router
+from routes.overlay import router as overlay_router
+from routes.webhooks.cashfree import router as cashfree_webhook_router
 
 
 @asynccontextmanager
@@ -42,6 +45,9 @@ app.add_middleware(
 
 # Routes
 app.include_router(auth_router)
+app.include_router(tip_router)
+app.include_router(overlay_router)
+app.include_router(cashfree_webhook_router)
 
 
 @app.get("/health")
