@@ -2,11 +2,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 
 from config import settings
-from models.waitlist import Waitlist
 from models.creator import Creator
 from models.tip import Tip
 from models.withdrawal import Withdrawal
 from models.revenue import SponSaRevenue
+from models.webhook_event import WebhookEvent
 
 
 async def connect_db():
@@ -17,11 +17,11 @@ async def connect_db():
     await init_beanie(
         database=db,
         document_models=[
-            Waitlist,
             Creator,
             Tip,
             Withdrawal,
             SponSaRevenue,
+            WebhookEvent,
         ],
     )
     print(f"✅ Connected to MongoDB: {settings.mongodb_db_name}")

@@ -7,16 +7,24 @@ from pydantic import EmailStr, Field
 
 
 class Creator(Document):
-    clerk_user_id: Indexed(str, unique=True)
+    google_id: Indexed(str, unique=True)
     email: Indexed(EmailStr, unique=True)
     slug: Indexed(str, unique=True)  # sponsa.in/{slug}
     display_name: str
     avatar_url: Optional[str] = None
     youtube_url: Optional[str] = None
+
+    # Cashfree EasySplit
+    cashfree_vendor_id: Optional[str] = None
     upi_id: Optional[str] = None
+    upi_verified: bool = False
+
+    # Wallet (internal ledger — mirrors Cashfree vault)
     wallet_balance: Decimal = Decimal("0.00")
-    approved: bool = True
-    onboarded_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # OBS overlay
+    obs_token: Indexed(str, unique=True)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

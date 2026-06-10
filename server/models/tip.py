@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -8,23 +8,20 @@ from pydantic import Field
 
 class Tip(Document):
     creator_id: Indexed(PydanticObjectId)
-    donor_name: str = Field(max_length=100)
-    message: Optional[str] = Field(default=None, max_length=500)
+    donor_name: str = Field(max_length=30)  # PRD: 30 char max
+    message: Optional[str] = Field(default=None, max_length=150)  # PRD: 150 char max
 
     # Money — always use Decimal for currency
     amount: Decimal
-    creator_share: Decimal       # 90%
-    sponsa_fee: Decimal          # 10%
+    creator_share: Decimal  # 90%
+    sponsa_fee: Decimal  # 10%
 
-    # Razorpay references
-    razorpay_payment_id: Indexed(str, unique=True)
-    razorpay_order_id: str
-    session_id: Optional[str] = None
+    # Cashfree references
+    cashfree_payment_id: Indexed(str, unique=True)  # idempotency
+    cashfree_order_id: str
 
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: datetime = Field(
-        default_factory=lambda: datetime.utcnow() + timedelta(hours=72)
-    )
+    # No TTL — permanent retention per PRD §6.2
 
     class Settings:
         name = "tips"

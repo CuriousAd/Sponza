@@ -18,7 +18,7 @@ class Withdrawal(Document):
     creator_id: Indexed(PydanticObjectId)
     amount: Decimal
     upi_id: str
-    razorpay_payout_id: Optional[str] = None
+    cashfree_transfer_id: Optional[str] = None
     status: WithdrawalStatus = WithdrawalStatus.PENDING
     failure_reason: Optional[str] = None
     requested_at: datetime = Field(default_factory=datetime.utcnow)

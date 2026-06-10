@@ -7,7 +7,7 @@ from pydantic import Field
 
 class SponSaRevenue(Document):
     tip_id: Indexed(PydanticObjectId, unique=True)
-    razorpay_payment_id: str
+    cashfree_payment_id: str
     amount: Decimal
     recorded_at: datetime = Field(default_factory=datetime.utcnow)
 

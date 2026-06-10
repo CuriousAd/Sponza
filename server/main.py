@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from db import connect_db
-from routes.waitlist import router as waitlist_router
 
 
 @asynccontextmanager
@@ -18,7 +17,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Sponsa API",
-    version="0.1.0",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
@@ -30,9 +29,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Routes
-app.include_router(waitlist_router)
 
 
 @app.get("/health")
