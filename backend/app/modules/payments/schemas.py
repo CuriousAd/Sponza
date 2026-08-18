@@ -6,7 +6,7 @@ class CreateTipOrderRequest(BaseModel):
     creator_slug: str
     donor_name: str = Field(..., min_length=1, max_length=30)
     amount: float = Field(..., ge=10, le=50000)
-    message: Optional[str] = Field(default=None, max_length=150)
+    message: Optional[str] = Field(default=None, max_length=300)
 
 
 class CreateTipOrderResponse(BaseModel):

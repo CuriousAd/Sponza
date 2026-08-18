@@ -8,7 +8,7 @@ from pydantic import Field
 class Tip(Document):
     creator_id: Indexed(PydanticObjectId) # type: ignore
     donor_name: str = Field(max_length=30)
-    message: Optional[str] = Field(default=None, max_length=150)
+    message: Optional[str] = Field(default=None, max_length=300)
     amount: Decimal
     creator_share: Decimal
     sponza_fee: Decimal
