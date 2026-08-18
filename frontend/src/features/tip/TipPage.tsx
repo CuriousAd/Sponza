@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useParams } from "react-router-dom";
+import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -111,12 +112,6 @@ const SUPER_CHAT_TIERS: SuperChatTier[] = [
 const PRESET_AMOUNTS = [20, 50, 100, 200, 500, 1000, 2000, 5000];
 
 const QUICK_EMOJIS = ["❤️", "🔥", "🎉", "👑", "🚀", "💯", "👏", "😂", "🙌", "🌟", "💰", "🥳", "🎮", "💪"];
-
-const CATEGORIZED_EMOJIS = {
-  Streamer: ["👑", "🔥", "🚀", "🎮", "🕹️", "🎯", "⚡", "💎", "🏆", "🌟"],
-  Reactions: ["❤️", "🎉", "💯", "👏", "🙌", "🥳", "😍", "😎", "🤩", "😂"],
-  Support: ["💰", "💸", "🤝", "💪", "✨", "🎈", "🎁", "⭐", "🥇", "💖"],
-};
 
 function getSuperChatTier(amount: number): SuperChatTier {
   const rounded = Math.max(10, Math.min(50000, amount || 10));
@@ -415,28 +410,17 @@ export default function TipPage() {
                             <span>Emojis</span>
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-72 p-3" align="end">
-                          <div className="space-y-2">
-                            {Object.entries(CATEGORIZED_EMOJIS).map(([category, emojis]) => (
-                              <div key={category}>
-                                <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                                  {category}
-                                </span>
-                                <div className="grid grid-cols-5 gap-1 text-center">
-                                  {emojis.map((emoji) => (
-                                    <button
-                                      key={emoji}
-                                      type="button"
-                                      onClick={() => handleInsertEmoji(emoji)}
-                                      className="h-8 w-8 hover:bg-muted rounded text-lg flex items-center justify-center transition-colors"
-                                    >
-                                      {emoji}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                        <PopoverContent className="w-auto p-0 border-0 shadow-2xl overflow-hidden" align="end">
+                          <EmojiPicker
+                            theme={Theme.DARK}
+                            onEmojiClick={(emojiData: EmojiClickData) => {
+                              handleInsertEmoji(emojiData.emoji);
+                            }}
+                            searchPlaceHolder="Search emojis..."
+                            width={320}
+                            height={380}
+                            lazyLoadEmojis={true}
+                          />
                         </PopoverContent>
                       </Popover>
                     )}
