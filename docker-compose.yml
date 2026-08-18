@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: sponza-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: sponza_dev
+    volumes:
+      - mongodb_data:/data/db
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sponza-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+      MONGODB_DB_NAME: sponza_dev
+      PORT: 8000
+      FRONTEND_URL: http://localhost:8080
+      JWT_SECRET: dev_jwt_secret_key_change_in_prod
+      GOOGLE_CLIENT_ID: dummy_google_client_id
+      GOOGLE_CLIENT_SECRET: dummy_google_client_secret
+      CASHFREE_CLIENT_ID: dummy_cashfree_client_id
+      CASHFREE_CLIENT_SECRET: dummy_cashfree_client_secret
+      CASHFREE_WEBHOOK_SECRET: dummy_cashfree_webhook_secret
+    depends_on:
+      - mongodb
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sponza-frontend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      VITE_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_data:
