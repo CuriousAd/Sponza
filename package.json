@@ -8,8 +8,10 @@
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && python -m uvicorn app.main:app --reload --port 8000",
     "build:frontend": "cd frontend && npm run build",
+    "lint:frontend": "cd frontend && npm run lint",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "prepare": "husky"
   },
   "keywords": [
     "sponza",
@@ -18,5 +20,14 @@
     "fastapi",
     "react",
     "monorepo"
-  ]
+  ],
+  "lint-staged": {
+    "frontend/src/**/*.{ts,tsx}": [
+      "npm --prefix frontend run lint"
+    ]
+  },
+  "devDependencies": {
+    "husky": "^9.1.5",
+    "lint-staged": "^15.2.10"
+  }
 }
