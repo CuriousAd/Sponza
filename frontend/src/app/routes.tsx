@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import HomePage from "@/features/landing/HomePage";
+import LegalPage from "@/features/landing/LegalPage";
 import AuthPage from "@/features/auth/AuthPage";
 import ProtectedRoute from "@/features/auth/ProtectedRoute";
 import DashboardPage from "@/features/dashboard/DashboardPage";
@@ -19,6 +20,22 @@ export const router = createBrowserRouter([
   {
     path: "/signup",
     element: <AuthPage type="signup" />,
+  },
+  {
+    path: "/terms",
+    element: <LegalPage />,
+  },
+  {
+    path: "/privacy",
+    element: <LegalPage />,
+  },
+  {
+    path: "/refund",
+    element: <LegalPage />,
+  },
+  {
+    path: "/contact",
+    element: <LegalPage />,
   },
   {
     path: "/dashboard",
