@@ -292,7 +292,7 @@ export default function HomePage() {
             Sponza is launching soon. Be among the first creators to get access.
           </p>
           <a
-            href="#"
+            href="https://form.typeform.com/to/YL6jeLxj"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-sponza-100 text-sponza-900 font-heading font-medium text-base md:text-lg px-8 py-4 rounded-xl hover:bg-sponza-300 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(251,228,216,0.15)]"
