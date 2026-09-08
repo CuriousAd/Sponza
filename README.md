@@ -1,6 +1,6 @@
-# 🚀 Sponza - Production Monorepo
+# 🚀 Sponsa - Production Monorepo
 
-Sponza is a high-volume real-time UPI tipping and revenue-share payment platform engineered for Indian content creators.
+Sponsa is a high-volume real-time UPI tipping and revenue-share payment platform engineered for Indian content creators.
 
 ---
 
@@ -9,7 +9,7 @@ Sponza is a high-volume real-time UPI tipping and revenue-share payment platform
 The repository is structured as a decoupled monorepo supporting independent deployment units for backend and frontend microservices.
 
 ```
-sponza/
+sponsa/
 ├── backend/                  # FastAPI Application (Vertical Slice Architecture)
 │   ├── app/
 │   │   ├── main.py           # Application Entry Point & Lifespan Handler
@@ -90,13 +90,13 @@ npm run docker:up
 ### Deploying Backend to Heroku
 1. **Create Heroku App**:
    ```bash
-   heroku create sponza-backend-api
+   heroku create sponsa-backend-api
    ```
 2. **Set Buildpack & Environment Variables**:
    ```bash
-   heroku buildpacks:set heroku/python -a sponza-backend-api
-   heroku config:set MONGODB_URI="your_mongodb_atlas_uri" -a sponza-backend-api
-   heroku config:set JWT_SECRET="your_jwt_secret" -a sponza-backend-api
+   heroku buildpacks:set heroku/python -a sponsa-backend-api
+   heroku config:set MONGODB_URI="your_mongodb_atlas_uri" -a sponsa-backend-api
+   heroku config:set JWT_SECRET="your_jwt_secret" -a sponsa-backend-api
    ```
 3. **Deploy from Subdirectory**:
    ```bash

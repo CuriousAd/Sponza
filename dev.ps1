@@ -4,7 +4,7 @@ Param(
     [string]$Target = "all"
 )
 
-Write-Host "[+] Starting Sponza Monorepo Development Environment..." -ForegroundColor Cyan
+Write-Host "[+] Starting Sponsa Monorepo Development Environment..." -ForegroundColor Cyan
 
 if ($Target -eq "backend" -or $Target -eq "all") {
     Write-Host "[Backend] Starting FastAPI Backend Server on http://localhost:8000..." -ForegroundColor Green

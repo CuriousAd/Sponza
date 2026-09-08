@@ -1,8 +1,8 @@
 {
-  "name": "sponza-monorepo",
+  "name": "sponsa-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Production Monorepo for Sponza Real-Time UPI Payment Platform",
+  "description": "Production Monorepo for Sponsa Real-Time UPI Payment Platform",
   "scripts": {
     "dev": "powershell -ExecutionPolicy Bypass -File ./dev.ps1",
     "dev:frontend": "cd frontend && npm run dev",
@@ -14,7 +14,7 @@
     "prepare": "husky"
   },
   "keywords": [
-    "sponza",
+    "sponsa",
     "upi",
     "payments",
     "fastapi",

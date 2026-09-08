@@ -3,12 +3,12 @@ version: '3.8'
 services:
   mongodb:
     image: mongo:7.0
-    container_name: sponza-mongodb
+    container_name: sponsa-mongodb
     restart: always
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_DATABASE: sponza_dev
+      MONGO_INITDB_DATABASE: sponsa_dev
     volumes:
       - mongodb_data:/data/db
 
@@ -16,13 +16,13 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: sponza-backend
+    container_name: sponsa-backend
     restart: always
     ports:
       - "8000:8000"
     environment:
       MONGODB_URI: mongodb://mongodb:27017
-      MONGODB_DB_NAME: sponza_dev
+      MONGODB_DB_NAME: sponsa_dev
       PORT: 8000
       FRONTEND_URL: http://localhost:8080
       JWT_SECRET: dev_jwt_secret_key_change_in_prod
@@ -38,7 +38,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: sponza-frontend
+    container_name: sponsa-frontend
     restart: always
     ports:
       - "8080:8080"

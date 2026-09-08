@@ -1,4 +1,4 @@
-# Sponza — Final Implementation Plan
+# Sponsa — Final Implementation Plan
 
 > **A real-time UPI tipping platform for Indian YouTube live streamers**, built to replace the 30% Super Chat tax with a 5–10% fee using Cashfree's split-settlement architecture.
 
@@ -8,7 +8,7 @@
 
 ### 1.1 What We're Building & For Whom
 
-**Sponza** is a high-volume, real-time payment platform purpose-built for **Indian YouTube Live creators**. It solves a single, sharp problem: YouTube Super Chat takes a 30% cut from every live-stream tip. Sponza reduces that to 5–10%, putting ₹90+ of every ₹100 directly into the creator's wallet.
+**Sponsa** is a high-volume, real-time payment platform purpose-built for **Indian YouTube Live creators**. It solves a single, sharp problem: YouTube Super Chat takes a 30% cut from every live-stream tip. Sponsa reduces that to 5–10%, putting ₹90+ of every ₹100 directly into the creator's wallet.
 
 **Target Users:**
 
@@ -16,14 +16,14 @@
 | :--- | :--- | :--- |
 | **Creator** (Streamer) | Signs in with Google, shares a unique tip link, sees alerts on OBS | Keep 90%+ of tips, instant UPI withdrawal |
 | **Viewer** (Tipper) | Opens creator's link, enters name + amount + message, pays via UPI | Sub-30-second payment experience, no app install |
-| **Platform** (Sponza) | Orchestrates payments, handles compliance, displays overlays | Collect 10% platform fee, scale to thousands of concurrent streams |
+| **Platform** (Sponsa) | Orchestrates payments, handles compliance, displays overlays | Collect 10% platform fee, scale to thousands of concurrent streams |
 
 **Core Value Proposition:**
 
 ```
 Viewer pays ₹100 via UPI
   → ₹90 goes to Creator's Cashfree Virtual Vault (instant)
-  → ₹10 goes to Sponza (platform fee)
+  → ₹10 goes to Sponsa (platform fee)
   → Creator withdraws ₹90 to personal UPI anytime
 ```
 
@@ -38,7 +38,7 @@ Viewer pays ₹100 via UPI
 | **Config & Secrets** | `config.py`, `.env.example`, `.gitignore` | ✅ Done | All Cashfree + Google + MongoDB vars declared |
 | **Google OAuth** | `auth/router.py` + `auth/service.py` | ✅ Done | Full flow: redirect → callback → JWT cookie → creator upsert |
 | **Creator Model** | `creators/models.py` | ✅ Done | `google_id`, `slug`, `obs_token`, `cashfree_vendor_id`, `wallet_balance` |
-| **Tip Model** | `payments/models.py` | ✅ Done | `Tip` + `SponzaRevenue` with unique index on `cashfree_payment_id` |
+| **Tip Model** | `payments/models.py` | ✅ Done | `Tip` + `SponsaRevenue` with unique index on `cashfree_payment_id` |
 | **Webhook Model** | `webhooks/models.py` | ✅ Done | `WebhookEvent` audit log with idempotency status tracking |
 | **Withdrawal Model** | `wallet/models.py` | ✅ Done | `Withdrawal` with `WithdrawalStatus` enum |
 | **Cashfree Client** | `integrations/cashfree/client.py` | ✅ Done | `create_order()`, `create_vendor()`, `initiate_payout()` |
@@ -48,14 +48,14 @@ Viewer pays ₹100 via UPI
 | **WebSocket Manager** | `overlay/manager.py` + `overlay/router.py` | ✅ Done | `ConnectionManager` with fan-out broadcast |
 | **Security** | `core/security.py` | ✅ Done | JWT, HMAC verify, `bleach` sanitization |
 | **Middleware** | `core/middleware.py` | ✅ Done | CORS, rate limiting via `slowapi` |
-| **Frontend — Landing** | `features/landing/HomePage.tsx` | ✅ Done | Hero, features, footer with Sponza branding |
+| **Frontend — Landing** | `features/landing/HomePage.tsx` | ✅ Done | Hero, features, footer with Sponsa branding |
 | **Frontend — Auth** | `features/auth/AuthPage.tsx` | ✅ Done | Google OAuth redirect, demo session fallback |
 | **Frontend — Dashboard** | `features/dashboard/DashboardPage.tsx` | ✅ Done | Session control, links, live feed, wallet, quick stats |
 | **Frontend — Tip Page** | `features/tip/TipPage.tsx` | ✅ Done | Donor form, quick amounts, UPI button, BroadcastChannel |
 | **Frontend — Overlay** | `features/overlay/OverlayPage.tsx` | ✅ Done | WebSocket + BroadcastChannel, tiered animations |
 | **CI/CD** | Husky + lint-staged + ESLint v9 | ✅ Done | Pre-commit linting on frontend `*.ts/*.tsx` |
 | **Docker** | `docker-compose.yml` + Dockerfiles | ✅ Done | MongoDB 7 + backend + frontend services |
-| **Git & Repo** | GitHub `CuriousAd/Sponza` on `main` | ✅ Done | Clean history, no secrets committed |
+| **Git & Repo** | GitHub `CuriousAd/Sponsa` on `main` | ✅ Done | Clean history, no secrets committed |
 
 ---
 
@@ -96,7 +96,7 @@ Our integration uses **three Cashfree products**:
 │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘   │
 │         │                 │                 │           │
 │    UPI/Cards         90% → Vault       Vault → UPI      │
-│    from Viewer       10% → Sponza      to Creator       │
+│    from Viewer       10% → Sponsa      to Creator       │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -147,11 +147,11 @@ Viewer pays ────────│  INGEST   │──── Return 200 in 
 2. Fee calculation
 3. WebSocket notification to the streamer's browser source
 
-#### Pattern 2: Split-at-Ingestion (What Sponza Uses)
+#### Pattern 2: Split-at-Ingestion (What Sponsa Uses)
 
 Most platforms collect 100% of funds into their merchant account and then periodically settle with creators. This requires a **Payment Aggregator (PA) license** from the RBI.
 
-**Sponza's advantage**: By using Cashfree EasySplit, we split at the moment of payment capture. The creator's 90% never touches Sponza's bank account — it goes directly to their Cashfree Virtual Vault. This eliminates the PA license requirement and simplifies compliance.
+**Sponsa's advantage**: By using Cashfree EasySplit, we split at the moment of payment capture. The creator's 90% never touches Sponsa's bank account — it goes directly to their Cashfree Virtual Vault. This eliminates the PA license requirement and simplifies compliance.
 
 #### Pattern 3: Horizontal Worker Scaling
 
@@ -163,7 +163,7 @@ Most platforms collect 100% of funds into their merchant account and then period
 
 ---
 
-### 2.3 Sponza's Production Scaling Roadmap
+### 2.3 Sponsa's Production Scaling Roadmap
 
 #### Phase 1 — MVP (Current → First 50 Creators)
 
@@ -346,7 +346,7 @@ Viewer                  Frontend              Backend             Cashfree      
   │                        │                     │  payment.captured  │                  │
   │                        │                     │                   │── Split ────────▶│
   │                        │                     │                   │  90% → Vault     │
-  │                        │                     │                   │  10% → Sponza    │
+  │                        │                     │                   │  10% → Sponsa    │
   │                        │                     │                   │                  │
   │                        │                     │── Insert Tip ──▶DB                  │
   │                        │                     │── $inc wallet ─▶DB                  │
@@ -400,7 +400,7 @@ await Creator.get_motor_collection().update_one(
 ### 2.7 Deployment Strategy (Heroku)
 
 ```
-sponza-monorepo/
+sponsa-monorepo/
 ├── backend/
 │   ├── Procfile          # web: gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
 │   ├── Dockerfile        # For container-based deployment
@@ -442,7 +442,7 @@ sponza-monorepo/
 
 ## Summary
 
-**Sponza's codebase is architecturally complete** — all models, routes, services, security layers, and UI components are built and wired. The remaining work is **integration testing** against the live Cashfree sandbox and **productionizing** the deployment pipeline. The critical path is:
+**Sponsa's codebase is architecturally complete** — all models, routes, services, security layers, and UI components are built and wired. The remaining work is **integration testing** against the live Cashfree sandbox and **productionizing** the deployment pipeline. The critical path is:
 
 1. **Activate EasySplit** on Cashfree (external dependency, start immediately)
 2. **Wire the Cashfree JS SDK** into the tip payment flow

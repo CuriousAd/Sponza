@@ -7,7 +7,7 @@
 ## Project Structure
 
 ```
-sponza-tip-it-now/
+sponsa-tip-it-now/
 ├── server/
 │   ├── main.py                 # FastAPI entry point & lifespan context
 │   ├── db.py                   # Motor / Beanie initialization
