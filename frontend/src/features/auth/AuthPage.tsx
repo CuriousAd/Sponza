@@ -30,7 +30,7 @@ export default function AuthPage({ type }: AuthPageProps) {
             <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xl">S</span>
             </div>
-            <span className="text-2xl font-bold text-foreground">Sponza</span>
+            <span className="text-2xl font-bold text-foreground">Sponsa</span>
           </Link>
         </div>
 
@@ -42,7 +42,7 @@ export default function AuthPage({ type }: AuthPageProps) {
             <CardDescription>
               {isLogin
                 ? "Sign in to access your creator dashboard"
-                : "Join thousands of creators earning more with Sponza"}
+                : "Join thousands of creators earning more with Sponsa"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -64,7 +64,7 @@ export default function AuthPage({ type }: AuthPageProps) {
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                {isLogin ? "New to Sponza?" : "Already have an account?"}{" "}
+                {isLogin ? "New to Sponsa?" : "Already have an account?"}{" "}
                 <Link
                   to={isLogin ? "/signup" : "/login"}
                   className="font-medium text-brand-purple hover:underline"
@@ -79,8 +79,8 @@ export default function AuthPage({ type }: AuthPageProps) {
         <div className="text-center mt-6">
           <p className="text-sm text-muted-foreground">
             Need help? Contact{" "}
-            <a href="mailto:support@sponza.in" className="text-brand-purple hover:underline">
-              support@sponza.in
+            <a href="mailto:support@sponsa.in" className="text-brand-purple hover:underline">
+              support@sponsa.in
             </a>
           </p>
         </div>

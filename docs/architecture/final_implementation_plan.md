@@ -87,16 +87,16 @@ Our integration uses **three Cashfree products**:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CASHFREE STACK                        │
+│                    CASHFREE STACK                       │
 │                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │  Payment     │  │  EasySplit   │  │   Payouts    │  │
-│  │  Gateway     │──│  (Split at   │  │  (Withdrawal │  │
-│  │  (Collect)   │  │   capture)   │  │   to UPI)    │  │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │  Payment     │  │  EasySplit   │  │   Payouts    │   │
+│  │  Gateway     │──│  (Split at   │──│  (Withdrawal │   │
+│  │  (Collect)   │  │   capture)   │  │   to UPI)    │   │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘   │
 │         │                 │                 │           │
-│    UPI/Cards         90% → Vault       Vault → UPI     │
-│    from Viewer       10% → Sponza      to Creator      │
+│    UPI/Cards         90% → Vault       Vault → UPI      │
+│    from Viewer       10% → Sponza      to Creator       │
 └─────────────────────────────────────────────────────────┘
 ```
 

@@ -6,7 +6,7 @@ from app.core.security import create_jwt_token
 from app.modules.creators.models import Creator
 from app.modules.creators.service import generate_unique_slug, generate_unique_obs_token
 
-logger = logging.getLogger("sponza.auth.service")
+logger = logging.getLogger("sponsa.auth.service")
 
 oauth = OAuth()
 oauth.register(

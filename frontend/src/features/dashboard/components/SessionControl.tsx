@@ -14,7 +14,7 @@ export function SessionControl({ isLive, setIsLive }: SessionControlProps) {
   const startNewSession = () => {
     setIsLive(true);
     toast({
-      title: "Sponza Session Started!",
+      title: "Sponsa Session Started!",
       description: "Your tip link is now active for this stream",
       duration: 3000,
     });
@@ -24,7 +24,7 @@ export function SessionControl({ isLive, setIsLive }: SessionControlProps) {
     setIsLive(false);
     toast({
       title: "Session Stopped",
-      description: "Your Sponza session has been ended",
+      description: "Your Sponsa session has been ended",
       duration: 2000,
     });
   };
@@ -42,7 +42,7 @@ export function SessionControl({ isLive, setIsLive }: SessionControlProps) {
             </CardTitle>
             <CardDescription>
               {isLive
-                ? "Your Sponza link is active and receiving tips"
+                ? "Your Sponsa link is active and receiving tips"
                 : "Start a new session to activate tip collection"}
             </CardDescription>
           </div>
@@ -50,7 +50,7 @@ export function SessionControl({ isLive, setIsLive }: SessionControlProps) {
             {!isLive ? (
               <Button variant="hero" onClick={startNewSession}>
                 <Play className="w-4 h-4 mr-2" />
-                Start Sponza
+                Start Sponsa
               </Button>
             ) : (
               <Button variant="destructive" onClick={stopSession}>

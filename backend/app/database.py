@@ -3,7 +3,7 @@ from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import settings
 
-logger = logging.getLogger("sponza.database")
+logger = logging.getLogger("sponsa.database")
 
 
 async def init_db():
@@ -12,7 +12,7 @@ async def init_db():
 
     # Deferred imports to avoid circular imports during module load
     from app.modules.creators.models import Creator
-    from app.modules.payments.models import Tip, SponzaRevenue
+    from app.modules.payments.models import Tip, SponsaRevenue
     from app.modules.webhooks.models import WebhookEvent
     from app.modules.wallet.models import Withdrawal
 
@@ -21,7 +21,7 @@ async def init_db():
         document_models=[
             Creator,
             Tip,
-            SponzaRevenue,
+            SponsaRevenue,
             WebhookEvent,
             Withdrawal,
         ],

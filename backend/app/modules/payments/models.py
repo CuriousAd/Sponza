@@ -11,7 +11,7 @@ class Tip(Document):
     message: Optional[str] = Field(default=None, max_length=300)
     amount: Decimal
     creator_share: Decimal
-    sponza_fee: Decimal
+    sponsa_fee: Decimal
     cashfree_payment_id: Indexed(str, unique=True) # type: ignore
     cashfree_order_id: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -24,10 +24,10 @@ class Tip(Document):
         ]
 
 
-class SponzaRevenue(Document):
+class SponsaRevenue(Document):
     tip_id: Indexed(PydanticObjectId) # type: ignore
     amount: Decimal
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
-        name = "sponza_revenue"
+        name = "sponsa_revenue"

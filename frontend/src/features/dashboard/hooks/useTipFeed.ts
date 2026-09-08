@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { TipEvent } from "@/types/creator";
 import { useToast } from "@/hooks/useToast";
 
-const CHANNEL_NAME = "sponza_tip_events";
+const CHANNEL_NAME = "sponsa_tip_events";
 
 export function broadcastTip(tip: TipEvent) {
   try {

@@ -4,13 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Copy, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 
-interface SponzaLinksProps {
-  sponzaLink: string;
+interface SponsaLinksProps {
+  sponsaLink: string;
   localTipLink: string;
   overlayLink: string;
 }
 
-export function SponzaLinks({ sponzaLink, localTipLink, overlayLink }: SponzaLinksProps) {
+export function SponsaLinks({ sponsaLink, localTipLink, overlayLink }: SponsaLinksProps) {
   const { toast } = useToast();
 
   const copyToClipboard = (text: string, label: string) => {
@@ -25,15 +25,15 @@ export function SponzaLinks({ sponzaLink, localTipLink, overlayLink }: SponzaLin
   return (
     <Card className="bg-gradient-card border-0 shadow-card">
       <CardHeader>
-        <CardTitle>Your Sponza Links</CardTitle>
+        <CardTitle>Your Sponsa Links</CardTitle>
         <CardDescription>Share these with your viewers</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
           <label className="text-sm font-medium text-muted-foreground">Tip Link</label>
           <div className="flex space-x-2 mt-1">
-            <Input value={sponzaLink} readOnly className="font-mono text-sm" />
-            <Button variant="outline" size="sm" onClick={() => copyToClipboard(sponzaLink, "Tip link")}>
+            <Input value={sponsaLink} readOnly className="font-mono text-sm" />
+            <Button variant="outline" size="sm" onClick={() => copyToClipboard(sponsaLink, "Tip link")}>
               <Copy className="w-4 h-4" />
             </Button>
             <Button variant="outline" size="sm" asChild>

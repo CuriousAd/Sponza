@@ -28,7 +28,7 @@ async def google_callback(request: Request):
 
     response = RedirectResponse(url=f"{settings.frontend_url}/dashboard")
     response.set_cookie(
-        key="sponza_session",
+        key="sponsa_session",
         value=jwt_token,
         httponly=True,
         samesite="lax",
@@ -54,5 +54,5 @@ async def check_auth_status(creator: Creator | None = Depends(get_current_creato
 @router.post("/logout")
 async def logout(response: Response):
     """Clear session cookie."""
-    response.delete_cookie("sponza_session")
+    response.delete_cookie("sponsa_session")
     return {"message": "Logged out successfully"}

@@ -6,7 +6,7 @@ from app.core.security import verify_cashfree_signature
 from app.modules.webhooks.models import WebhookEvent
 from app.modules.payments.processor import process_payment_captured
 
-logger = logging.getLogger("sponza.webhooks.service")
+logger = logging.getLogger("sponsa.webhooks.service")
 
 
 async def handle_cashfree_webhook(

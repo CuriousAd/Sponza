@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from beanie import PydanticObjectId
 from app.modules.creators.models import Creator
-from app.modules.payments.models import Tip, SponzaRevenue
+from app.modules.payments.models import Tip, SponsaRevenue
 from app.modules.webhooks.models import WebhookEvent
 from app.modules.overlay.manager import connection_manager
 
-logger = logging.getLogger("sponza.payments.processor")
+logger = logging.getLogger("sponsa.payments.processor")
 
 _tip_semaphore = asyncio.Semaphore(20)
 
@@ -58,7 +58,7 @@ async def process_payment_captured(event_id: str, payload: dict):
 
             # Calculate 90% creator share and 10% platform fee
             creator_share = Decimal(str(round(float(amount) * 0.9, 2)))
-            sponza_fee = amount - creator_share
+            sponsa_fee = amount - creator_share
 
             # Extract donor details from order tags or payload
             donor_name = payment_data.get("bank_reference", "Anonymous Donor")
@@ -71,7 +71,7 @@ async def process_payment_captured(event_id: str, payload: dict):
                 message=message,
                 amount=amount,
                 creator_share=creator_share,
-                sponza_fee=sponza_fee,
+                sponsa_fee=sponsa_fee,
                 cashfree_payment_id=payment_id,
                 cashfree_order_id=order_id,
             )
@@ -81,8 +81,8 @@ async def process_payment_captured(event_id: str, payload: dict):
             creator.wallet_balance += creator_share
             await creator.save()
 
-            # Record Sponza Platform Revenue
-            revenue = SponzaRevenue(tip_id=tip.id, amount=sponza_fee)
+            # Record Sponsa Platform Revenue
+            revenue = SponsaRevenue(tip_id=tip.id, amount=sponsa_fee)
             await revenue.insert()
 
             # Broadcast real-time tip alert to OBS Overlay & Dashboard via WebSocket

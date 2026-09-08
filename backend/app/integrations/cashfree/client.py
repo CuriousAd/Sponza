@@ -3,7 +3,7 @@ import httpx
 from decimal import Decimal
 from app.config import settings
 
-logger = logging.getLogger("sponza.integrations.cashfree")
+logger = logging.getLogger("sponsa.integrations.cashfree")
 
 
 class CashfreeClient:
@@ -24,7 +24,7 @@ class CashfreeClient:
         order_id: str,
         amount: float,
         customer_name: str,
-        customer_email: str = "donor@sponza.in",
+        customer_email: str = "donor@sponsa.in",
         customer_phone: str = "9999999999",
         vendor_id: str | None = None,
         split_percentage: float = 90.0,
@@ -108,7 +108,7 @@ class CashfreeClient:
             "transferMode": "upi",
             "vpa": upi_id,
             "name": name,
-            "remarks": "Sponza Creator Withdrawal",
+            "remarks": "Sponsa Creator Withdrawal",
         }
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(url, json=payload, headers=payout_headers)

@@ -60,7 +60,7 @@ export function LiveTipsFeed({ tips }: LiveTipsFeedProps) {
                       <div className={`text-center py-24 ${isDarkMode ? "text-gray-400" : "text-muted-foreground"}`}>
                         <Users className="w-24 h-24 mx-auto mb-8 opacity-50" />
                         <p className="text-2xl font-medium">
-                          No tips yet. Share your Sponza link to start receiving support!
+                          No tips yet. Share your Sponsa link to start receiving support!
                         </p>
                       </div>
                     ) : (
@@ -69,7 +69,7 @@ export function LiveTipsFeed({ tips }: LiveTipsFeedProps) {
                           key={tip.id}
                           className={`flex items-start space-x-6 p-8 rounded-xl animate-fade-in border-2 ${
                             isDarkMode
-                              ? "bg-gray-800 border-gray-700 hover:bg-gray-750"
+                              ? "bg-gray-800 border-gray-700 hover:bg-gray-755"
                               : "bg-gray-50 border-gray-200 hover:bg-gray-100"
                           } transition-colors duration-200`}
                         >
@@ -117,7 +117,7 @@ export function LiveTipsFeed({ tips }: LiveTipsFeedProps) {
           {tips.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No tips yet. Share your Sponza link to start receiving support!</p>
+              <p>No tips yet. Share your Sponsa link to start receiving support!</p>
             </div>
           ) : (
             tips.map((tip) => (

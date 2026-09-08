@@ -43,11 +43,11 @@ function LandingSectionHeading({
 }: LandingSectionHeadingProps) {
   return (
     <div className={getRevealClasses(isVisible, "text-center")}>
-      <h2 className="font-heading text-3xl md:text-5xl font-medium text-sponza-100">
+      <h2 className="font-heading text-3xl md:text-5xl font-medium text-sponsa-100">
         {title}
       </h2>
       {description ? (
-        <p className="text-sponza-300/70 text-base md:text-lg mt-6 max-w-xl mx-auto">
+        <p className="text-sponsa-300/70 text-base md:text-lg mt-6 max-w-xl mx-auto">
           {description}
         </p>
       ) : null}
@@ -70,18 +70,18 @@ function StepCard({ step, index, isVisible }: StepCardProps) {
       {index < HOW_IT_WORKS_STEPS.length - 1 ? (
         <div
           aria-hidden="true"
-          className="hidden md:block absolute top-8 left-[calc(100%+0.5rem)] w-[calc(100%-1rem)] h-px border-t border-dashed border-sponza-700/50"
+          className="hidden md:block absolute top-8 left-[calc(100%+0.5rem)] w-[calc(100%-1rem)] h-px border-t border-dashed border-sponsa-700/50"
         />
       ) : null}
 
-      <div className="p-8 rounded-2xl bg-sponza-800/40 border border-sponza-700/30 backdrop-blur-sm hover:border-sponza-600/50 transition-all duration-300">
-        <span className="font-mono text-sm text-sponza-600 mb-4 block">
+      <div className="p-8 rounded-2xl bg-sponsa-800/40 border border-sponsa-700/30 backdrop-blur-sm hover:border-sponsa-600/50 transition-all duration-300">
+        <span className="font-mono text-sm text-sponsa-600 mb-4 block">
           {step.number}
         </span>
-        <h3 className="font-heading text-xl md:text-2xl text-sponza-100 mb-3">
+        <h3 className="font-heading text-xl md:text-2xl text-sponsa-100 mb-3">
           {step.title}
         </h3>
-        <p className="text-sponza-300/80 text-sm md:text-base leading-relaxed">
+        <p className="text-sponsa-300/80 text-sm md:text-base leading-relaxed">
           {step.description}
         </p>
       </div>
@@ -111,8 +111,8 @@ function PlatformComparisonRow({
       className={cn(
         "rounded-xl p-5 md:p-6 transition-all duration-700",
         platform.highlight
-          ? "sponza-highlight bg-sponza-800/60"
-          : "bg-sponza-800/30 border border-sponza-700/20",
+          ? "sponsa-highlight bg-sponsa-800/60"
+          : "bg-sponsa-800/30 border border-sponsa-700/20",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
       )}
       style={{ transitionDelay: `${(index + 3) * 100}ms` }}
@@ -127,13 +127,13 @@ function PlatformComparisonRow({
           <span
             className={cn(
               "font-heading text-sm md:text-base",
-              platform.highlight ? "text-sponza-100" : "text-sponza-300"
+              platform.highlight ? "text-sponsa-100" : "text-sponsa-300"
             )}
           >
             {platform.name}
           </span>
           {platform.highlight ? (
-            <span className="text-[10px] font-sans uppercase tracking-wider bg-sponza-100/10 text-sponza-100 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-sans uppercase tracking-wider bg-sponsa-100/10 text-sponsa-100 px-2 py-0.5 rounded-full">
               You're here
             </span>
           ) : null}
@@ -143,16 +143,16 @@ function PlatformComparisonRow({
           <span
             className={cn(
               "font-heading text-lg md:text-xl",
-              platform.highlight ? "text-sponza-100" : "text-sponza-300"
+              platform.highlight ? "text-sponsa-100" : "text-sponsa-300"
             )}
           >
             {formatINR(creatorGets)}
           </span>
-          <span className="text-sponza-600 text-xs ml-2">({platform.fee}% fee)</span>
+          <span className="text-sponsa-600 text-xs ml-2">({platform.fee}% fee)</span>
         </div>
       </div>
 
-      <div className="h-2 bg-sponza-900/50 rounded-full overflow-hidden">
+      <div className="h-2 bg-sponsa-900/50 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
           style={{
@@ -164,16 +164,16 @@ function PlatformComparisonRow({
       </div>
 
       <div className="flex justify-between gap-4 mt-2">
-        <span className="text-sponza-600 text-xs">
+        <span className="text-sponsa-600 text-xs">
           Creator keeps {formatINR(creatorGets)}
         </span>
-        <span className="text-sponza-600 text-xs">
+        <span className="text-sponsa-600 text-xs">
           Platform takes {formatINR(platformTakes)}
         </span>
       </div>
 
       {platform.tooltip ? (
-        <p className="text-sponza-600 text-[11px] mt-2 italic">* {platform.tooltip}</p>
+        <p className="text-sponsa-600 text-[11px] mt-2 italic">* {platform.tooltip}</p>
       ) : null}
     </div>
   );
@@ -186,10 +186,10 @@ export default function HomePage() {
   const ctaReveal = useScrollReveal<HTMLElement>();
 
   return (
-    <div className="min-h-screen bg-sponza-900 text-sponza-100 overflow-x-hidden">
+    <div className="min-h-screen bg-sponsa-900 text-sponsa-100 overflow-x-hidden">
       <section className="relative h-screen w-full flex items-center justify-center">
         <ASCIIText
-          text="SPONZA"
+          text="SPONSA"
           enableWaves
           asciiFontSize={8}
           textFontSize={200}
@@ -198,12 +198,12 @@ export default function HomePage() {
         />
 
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
-          <span className="text-sponza-300 text-xs font-sans tracking-widest uppercase opacity-60">
+          <span className="text-sponsa-300 text-xs font-sans tracking-widest uppercase opacity-60">
             Scroll
           </span>
           <ChevronDown
             aria-hidden="true"
-            className="w-5 h-5 text-sponza-300 animate-scroll-bounce"
+            className="w-5 h-5 text-sponsa-300 animate-scroll-bounce"
           />
         </div>
       </section>
@@ -234,7 +234,7 @@ export default function HomePage() {
 
       <section
         ref={calculatorReveal.ref}
-        className="relative py-24 md:py-32 px-6 bg-sponza-900"
+        className="relative py-24 md:py-32 px-6 bg-sponsa-900"
       >
         <div className="max-w-4xl mx-auto">
           <LandingSectionHeading
@@ -250,8 +250,8 @@ export default function HomePage() {
             )}
           >
             <div className="flex items-center justify-between gap-4 mb-4">
-              <span className="text-sponza-300/60 text-sm font-sans">Tip amount</span>
-              <span className="font-heading text-2xl md:text-3xl text-sponza-100">
+              <span className="text-sponsa-300/60 text-sm font-sans">Tip amount</span>
+              <span className="font-heading text-2xl md:text-3xl text-sponsa-100">
                 {formatINR(sliderValue)}
               </span>
             </div>
@@ -263,11 +263,11 @@ export default function HomePage() {
               value={sliderValue}
               onChange={(event) => setSliderValue(Number(event.target.value))}
               aria-label="Tip amount comparison slider"
-              className="sponza-slider w-full"
+              className="sponsa-slider w-full"
             />
             <div className="flex justify-between mt-2">
-              <span className="text-sponza-600 text-xs">Rs 10</span>
-              <span className="text-sponza-600 text-xs">Rs 50,000</span>
+              <span className="text-sponsa-600 text-xs">Rs 10</span>
+              <span className="text-sponsa-600 text-xs">Rs 50,000</span>
             </div>
           </div>
 
@@ -293,16 +293,16 @@ export default function HomePage() {
         }}
       >
         <div className={getRevealClasses(ctaReveal.isVisible, "max-w-2xl mx-auto text-center")}>
-          <h2 className="font-heading text-3xl md:text-5xl font-medium text-sponza-100 mb-6">
+          <h2 className="font-heading text-3xl md:text-5xl font-medium text-sponsa-100 mb-6">
             Join the waitlist
           </h2>
-          <p className="text-sponza-300/70 text-base md:text-lg mb-10 max-w-md mx-auto leading-relaxed">
-            Sponza is launching soon. Be among the first creators to get access.
+          <p className="text-sponsa-300/70 text-base md:text-lg mb-10 max-w-md mx-auto leading-relaxed">
+            Sponsa is launching soon. Be among the first creators to get access.
           </p>
           <Button
             asChild
             size="xl"
-            className="rounded-xl bg-sponza-100 text-sponza-900 font-heading font-medium hover:bg-sponza-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(251,228,216,0.15)]"
+            className="rounded-xl bg-sponsa-100 text-sponsa-900 font-heading font-medium hover:bg-sponsa-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(251,228,216,0.15)]"
           >
             <a href={WAITLIST_URL} target="_blank" rel="noopener noreferrer">
               Join Waitlist

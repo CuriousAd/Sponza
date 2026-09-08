@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # MongoDB
     mongodb_uri: str
-    mongodb_db_name: str = "sponza_dev"
+    mongodb_db_name: str = "sponsa_dev"
 
     # Server
     port: int = 8000

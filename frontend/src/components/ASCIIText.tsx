@@ -518,7 +518,7 @@ interface ASCIITextProps {
 }
 
 export default function ASCIIText({
-  text = "SPONZA",
+  text = "SPONSA",
   asciiFontSize = 8,
   textFontSize = 200,
   textColor = "#FBE4D8",

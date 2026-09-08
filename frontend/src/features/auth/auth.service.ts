@@ -38,13 +38,13 @@ export async function logoutUser() {
 
 /* ─── Demo Session Fallback ──────────────────────────────── */
 
-const DEMO_SESSION_KEY = "sponza_demo_session";
+const DEMO_SESSION_KEY = "sponsa_demo_session";
 
 export const DEMO_CREATOR: Creator = {
   id: "demo_creator_1",
   slug: "demo",
   display_name: "Demo Creator",
-  email: "demo@sponza.in",
+  email: "demo@sponsa.in",
   avatar_url: null,
   youtube_url: "https://youtube.com/@demo",
   upi_id: "demo@upi",

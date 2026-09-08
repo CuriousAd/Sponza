@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from fastapi import WebSocket, WebSocketDisconnect
 
-logger = logging.getLogger("sponza.overlay.manager")
+logger = logging.getLogger("sponsa.overlay.manager")
 
 
 class ConnectionManager:

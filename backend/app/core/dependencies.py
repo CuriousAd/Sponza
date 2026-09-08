@@ -5,7 +5,7 @@ from app.modules.creators.models import Creator
 
 async def get_current_creator(request: Request) -> Creator | None:
     """Dependency that returns the authenticated Creator from JWT session cookie or Authorization header."""
-    token = request.cookies.get("sponza_session")
+    token = request.cookies.get("sponsa_session")
 
     if not token:
         auth_header = request.headers.get("Authorization")

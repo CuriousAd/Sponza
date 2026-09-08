@@ -31,7 +31,7 @@ export const PLATFORM_COMPARISONS: PlatformComparison[] = [
     tooltip: "Twitch takes ~29% when viewers purchase Bits",
   },
   { name: "Kick", fee: 5, color: "#53FC18" },
-  { name: "Sponza", fee: 5, color: "#DFB6B2", highlight: true },
+  { name: "Sponsa", fee: 5, color: "#DFB6B2", highlight: true },
 ];
 
 export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
@@ -39,7 +39,7 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
     number: "01",
     title: "Share your link",
     description:
-      "Get your unique Sponza link and share it with your viewers during livestreams.",
+      "Get your unique Sponsa link and share it with your viewers during livestreams.",
   },
   {
     number: "02",
@@ -51,7 +51,7 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
     number: "03",
     title: "Get paid instantly",
     description:
-      "Tips land in your Sponza wallet. Withdraw to your UPI anytime you want.",
+      "Tips land in your Sponsa wallet. Withdraw to your UPI anytime you want.",
   },
 ];
 
@@ -66,7 +66,7 @@ export const LEGAL_PAGE_CONTENT: Record<string, LegalPageContent> = {
   "/terms": {
     title: "Terms & Conditions",
     description:
-      "Terms and conditions for creators and donors on the Sponza platform.",
+      "Terms and conditions for creators and donors on the Sponsa platform.",
   },
   "/privacy": {
     title: "Privacy Policy",
@@ -81,9 +81,9 @@ export const LEGAL_PAGE_CONTENT: Record<string, LegalPageContent> = {
   "/contact": {
     title: "Contact Us",
     description:
-      "Get in touch with the Sponza team for support, partnerships, or inquiries.",
+      "Get in touch with the Sponsa team for support, partnerships, or inquiries.",
   },
 };
 
-export const SUPPORT_EMAIL = "support@sponza.in";
+export const SUPPORT_EMAIL = "support@sponsa.in";
 export const WAITLIST_URL = "https://form.typeform.com/to/YL6jeLxj";

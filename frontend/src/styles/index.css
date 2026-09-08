@@ -6,13 +6,13 @@
 
 @layer base {
   :root {
-    /* ─── Sponza Brand Palette ─── */
-    --sponza-900: #190019;
-    --sponza-800: #2B124C;
-    --sponza-700: #522B5B;
-    --sponza-600: #854F6C;
-    --sponza-300: #DFB6B2;
-    --sponza-100: #FBE4D8;
+    /* ─── Sponsa Brand Palette ─── */
+    --sponsa-900: #190019;
+    --sponsa-800: #2B124C;
+    --sponsa-700: #522B5B;
+    --sponsa-600: #854F6C;
+    --sponsa-300: #DFB6B2;
+    --sponsa-100: #FBE4D8;
 
     /* ─── Semantic Tokens (dark-first) ─── */
     --background: 300 100% 5%;        /* #190019 */
@@ -128,7 +128,7 @@
 }
 
 /* ─── Slider custom styling ─── */
-input[type="range"].sponza-slider {
+input[type="range"].sponsa-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
@@ -139,7 +139,7 @@ input[type="range"].sponza-slider {
   cursor: pointer;
 }
 
-input[type="range"].sponza-slider::-webkit-slider-thumb {
+input[type="range"].sponsa-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 24px;
@@ -151,12 +151,12 @@ input[type="range"].sponza-slider::-webkit-slider-thumb {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-input[type="range"].sponza-slider::-webkit-slider-thumb:hover {
+input[type="range"].sponsa-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
   box-shadow: 0 0 12px rgba(223, 182, 178, 0.4);
 }
 
-input[type="range"].sponza-slider::-moz-range-thumb {
+input[type="range"].sponsa-slider::-moz-range-thumb {
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -165,14 +165,14 @@ input[type="range"].sponza-slider::-moz-range-thumb {
   cursor: pointer;
 }
 
-/* ─── Sponza row highlight ─── */
-.sponza-highlight {
+/* ─── Sponsa row highlight ─── */
+.sponsa-highlight {
   position: relative;
   border: 1px solid rgba(223, 182, 178, 0.3);
   box-shadow: 0 0 20px rgba(223, 182, 178, 0.08);
 }
 
-.sponza-highlight::before {
+.sponsa-highlight::before {
   content: '';
   position: absolute;
   inset: -1px;

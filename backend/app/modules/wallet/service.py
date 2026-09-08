@@ -1,7 +1,7 @@
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
-from app.core.exceptions import SponzaException
+from app.core.exceptions import SponsaException
 from app.integrations.cashfree.client import cashfree_client
 from app.modules.creators.models import Creator
 from app.modules.payments.models import Tip
@@ -11,10 +11,10 @@ from app.modules.wallet.schemas import WithdrawRequest, WithdrawResponse, TipFee
 
 async def process_withdrawal(creator: Creator, req: WithdrawRequest) -> WithdrawResponse:
     if not creator.upi_id:
-        raise SponzaException("Creator has not configured a UPI ID for withdrawals")
+        raise SponsaException("Creator has not configured a UPI ID for withdrawals")
 
     if req.amount > creator.wallet_balance:
-        raise SponzaException("Insufficient wallet balance for requested withdrawal")
+        raise SponsaException("Insufficient wallet balance for requested withdrawal")
 
     transfer_id = f"wd_{str(creator.id)}_{int(time.time() * 1000)}"
 
@@ -49,7 +49,7 @@ async def process_withdrawal(creator: Creator, req: WithdrawRequest) -> Withdraw
         withdrawal.status = WithdrawalStatus.FAILED
         withdrawal.failure_reason = str(e)
         await withdrawal.save()
-        raise SponzaException(f"Withdrawal transfer failed: {str(e)}")
+        raise SponsaException(f"Withdrawal transfer failed: {str(e)}")
 
     return WithdrawResponse(
         withdrawal_id=str(withdrawal.id),

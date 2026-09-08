@@ -59,7 +59,7 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				sponza: {
+				sponsa: {
 					900: '#190019',
 					800: '#2B124C',
 					700: '#522B5B',
