@@ -1,17 +1,15 @@
-import { createBrowserRouter } from "react-router-dom";
-import HomePage from "@/features/landing/HomePage";
-import LegalPage from "@/features/landing/LegalPage";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import AuthPage from "@/features/auth/AuthPage";
 import ProtectedRoute from "@/features/auth/ProtectedRoute";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 import TipPage from "@/features/tip/TipPage";
 import OverlayPage from "@/features/overlay/OverlayPage";
-import NotFound from "@/features/landing/NotFound";
+import NotFound from "@/app/NotFound";
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <HomePage />,
+    element: <Navigate to="/dashboard" replace />,
   },
   {
     path: "/login",
@@ -20,34 +18,6 @@ export const router = createBrowserRouter([
   {
     path: "/signup",
     element: <AuthPage type="signup" />,
-  },
-  {
-    path: "/terms",
-    element: <LegalPage />,
-  },
-  {
-    path: "/privacy",
-    element: <LegalPage />,
-  },
-  {
-    path: "/refund",
-    element: <LegalPage />,
-  },
-  {
-    path: "/contact",
-    element: <LegalPage />,
-  },
-  {
-    path: "/community-guidelines",
-    element: <LegalPage />,
-  },
-  {
-    path: "/about",
-    element: <LegalPage />,
-  },
-  {
-    path: "/shipping",
-    element: <LegalPage />,
   },
   {
     path: "/dashboard",

@@ -4,11 +4,15 @@
   "private": true,
   "description": "Production Monorepo for Sponsa Real-Time UPI Payment Platform",
   "scripts": {
-    "dev": "powershell -ExecutionPolicy Bypass -File ./dev.ps1",
+    "dev:landing": "cd landing && npm run dev",
+    "dev:app": "cd frontend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && python -m uvicorn app.main:app --reload --port 8000",
+    "build:landing": "cd landing && npm run build",
+    "build:app": "cd frontend && npm run build",
     "build:frontend": "cd frontend && npm run build",
-    "lint:frontend": "cd frontend && npm run lint",
+    "build:all": "npm run build:landing && npm run build:app",
+    "heroku-postbuild": "cd frontend && npm install && npm run build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "prepare": "husky"

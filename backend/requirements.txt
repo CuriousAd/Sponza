@@ -14,3 +14,4 @@ itsdangerous==2.*
 tenacity==9.*
 slowapi==0.1.*
 bleach==6.*
+aiofiles==24.*

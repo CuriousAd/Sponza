@@ -44,7 +44,7 @@ export const DEMO_CREATOR: Creator = {
   id: "demo_creator_1",
   slug: "demo",
   display_name: "Demo Creator",
-  email: "demo@sponsa.in",
+  email: "demo@sponsa.tech",
   avatar_url: null,
   youtube_url: "https://youtube.com/@demo",
   upi_id: "demo@upi",
