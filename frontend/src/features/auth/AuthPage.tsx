@@ -79,8 +79,8 @@ export default function AuthPage({ type }: AuthPageProps) {
         <div className="text-center mt-6">
           <p className="text-sm text-muted-foreground">
             Need help? Contact{" "}
-            <a href="mailto:support@sponsa.in" className="text-brand-purple hover:underline">
-              support@sponsa.in
+            <a href="mailto:support@sponsa.tech" className="text-brand-purple hover:underline">
+              support@sponsa.tech
             </a>
           </p>
         </div>

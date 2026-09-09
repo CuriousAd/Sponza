@@ -38,6 +38,18 @@ export const router = createBrowserRouter([
     element: <LegalPage />,
   },
   {
+    path: "/community-guidelines",
+    element: <LegalPage />,
+  },
+  {
+    path: "/about",
+    element: <LegalPage />,
+  },
+  {
+    path: "/shipping",
+    element: <LegalPage />,
+  },
+  {
     path: "/dashboard",
     element: (
       <ProtectedRoute>
