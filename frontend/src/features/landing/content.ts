@@ -43,22 +43,25 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
   },
   {
     number: "02",
-    title: "Viewers tip via UPI",
+    title: "Viewers support via UPI",
     description:
       "They enter their name, choose an amount, add a message, and pay instantly with UPI.",
   },
   {
     number: "03",
-    title: "Get paid instantly",
+    title: "Direct bank settlement",
     description:
-      "Tips land in your Sponsa wallet. Withdraw to your UPI anytime you want.",
+      "Funds are routed directly to your registered bank account via standard settlement cycles — no platform holding, no withdrawal delays.",
   },
 ];
 
 export const LANDING_FOOTER_LINKS: FooterLink[] = [
+  { to: "/about", label: "About & Pricing" },
   { to: "/terms", label: "Terms & Conditions" },
   { to: "/privacy", label: "Privacy Policy" },
   { to: "/refund", label: "Refund & Cancellation Policy" },
+  { to: "/shipping", label: "Shipping & Delivery Policy" },
+  { to: "/community-guidelines", label: "Community Guidelines" },
   { to: "/contact", label: "Contact Us" },
 ];
 
@@ -66,7 +69,7 @@ export const LEGAL_PAGE_CONTENT: Record<string, LegalPageContent> = {
   "/terms": {
     title: "Terms & Conditions",
     description:
-      "Terms and conditions for creators and donors on the Sponsa platform.",
+      "Terms and conditions for creators and supporters on the Sponsa platform.",
   },
   "/privacy": {
     title: "Privacy Policy",
@@ -76,14 +79,29 @@ export const LEGAL_PAGE_CONTENT: Record<string, LegalPageContent> = {
   "/refund": {
     title: "Refund & Cancellation Policy",
     description:
-      "Guidelines and procedures for tipping transactions and payment processing.",
+      "Guidelines and procedures for transactions and payment processing.",
+  },
+  "/shipping": {
+    title: "Shipping & Delivery Policy",
+    description:
+      "Information regarding fulfillment and electronic delivery of our Digital Services.",
   },
   "/contact": {
     title: "Contact Us",
     description:
-      "Get in touch with the Sponsa team for support, partnerships, or inquiries.",
+      "Get in touch with the Sponsa team for support, partnerships, or enquiries.",
+  },
+  "/community-guidelines": {
+    title: "Community Guidelines",
+    description:
+      "Rules and expectations for all members of the Sponsa community.",
+  },
+  "/about": {
+    title: "About Sponsa — Platform & Pricing",
+    description:
+      "Learn about how Sponsa works, our transparent pricing, and the nature of transactions.",
   },
 };
 
-export const SUPPORT_EMAIL = "support@sponsa.in";
+export const SUPPORT_EMAIL = "support@sponsa.tech";
 export const WAITLIST_URL = "https://form.typeform.com/to/YL6jeLxj";
