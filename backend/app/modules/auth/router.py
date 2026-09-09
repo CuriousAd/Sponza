@@ -26,13 +26,14 @@ async def google_callback(request: Request):
 
     creator, jwt_token = await get_or_create_google_creator(user_info)
 
+    is_https = settings.frontend_url.startswith("https")
     response = RedirectResponse(url=f"{settings.frontend_url}/dashboard")
     response.set_cookie(
         key="sponsa_session",
         value=jwt_token,
         httponly=True,
         samesite="lax",
-        secure=False,  # Set to True in production
+        secure=is_https,
         max_age=604800,  # 7 days
     )
     return response
@@ -54,5 +55,11 @@ async def check_auth_status(creator: Creator | None = Depends(get_current_creato
 @router.post("/logout")
 async def logout(response: Response):
     """Clear session cookie."""
-    response.delete_cookie("sponsa_session")
+    is_https = settings.frontend_url.startswith("https")
+    response.delete_cookie(
+        "sponsa_session",
+        httponly=True,
+        samesite="lax",
+        secure=is_https,
+    )
     return {"message": "Logged out successfully"}

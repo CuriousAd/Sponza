@@ -12,10 +12,10 @@
     "build:app": "cd frontend && npm run build",
     "build:frontend": "cd frontend && npm run build",
     "build:all": "npm run build:landing && npm run build:app",
-    "heroku-postbuild": "cd frontend && npm install && npm run build",
+    "heroku-postbuild": "cd frontend && npm install --include=dev && npm run build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "keywords": [
     "sponsa",
