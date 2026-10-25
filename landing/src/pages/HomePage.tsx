@@ -108,19 +108,19 @@ function StepCard({ step, index, isVisible }: StepCardProps) {
 
 interface PlatformComparisonRowProps {
   platform: PlatformComparison;
-  tipAmount: number;
+  supportAmount: number;
   index: number;
   isVisible: boolean;
 }
 
 function PlatformComparisonRow({
   platform,
-  tipAmount,
+  supportAmount,
   index,
   isVisible,
 }: PlatformComparisonRowProps) {
-  const creatorGets = Math.round(tipAmount * (1 - platform.fee / 100));
-  const platformTakes = tipAmount - creatorGets;
+  const creatorGets = Math.round(supportAmount * (1 - platform.fee / 100));
+  const platformTakes = supportAmount - creatorGets;
   const keepPercentage = (1 - platform.fee / 100) * 100;
 
   return (
@@ -267,7 +267,7 @@ export default function HomePage() {
             )}
           >
             <div className="flex items-center justify-between gap-4 mb-4">
-              <span className="text-sponsa-300/60 text-sm font-sans">Tip amount</span>
+              <span className="text-sponsa-300/60 text-sm font-sans">Support amount</span>
               <span className="font-heading text-2xl md:text-3xl text-sponsa-100">
                 {formatINR(sliderValue)}
               </span>
@@ -279,12 +279,12 @@ export default function HomePage() {
               step={10}
               value={sliderValue}
               onChange={(event) => setSliderValue(Number(event.target.value))}
-              aria-label="Tip amount comparison slider"
+              aria-label="Support amount comparison slider"
               className="sponsa-slider w-full"
             />
             <div className="flex justify-between mt-2">
-              <span className="text-sponsa-600 text-xs">Rs 10</span>
-              <span className="text-sponsa-600 text-xs">Rs 50,000</span>
+              <span className="text-sponsa-600 text-xs">₹10</span>
+              <span className="text-sponsa-600 text-xs">₹50,000</span>
             </div>
           </div>
 
@@ -293,7 +293,7 @@ export default function HomePage() {
               <PlatformComparisonRow
                 key={platform.name}
                 platform={platform}
-                tipAmount={sliderValue}
+                supportAmount={sliderValue}
                 index={index}
                 isVisible={calculatorReveal.isVisible}
               />

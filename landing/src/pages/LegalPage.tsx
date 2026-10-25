@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Menu, X } from "lucide-react";
 
 import { LandingFooter } from "@/components/LandingFooter";
+import DOMPurify from "dompurify";
 import {
   LEGAL_CONTENT_REGISTRY,
   type LegalPageData,
@@ -48,7 +49,7 @@ function SectionBlock({ section, depth = 0 }: SectionBlockProps) {
             <p
               key={i}
               className="text-sponsa-300/80 text-sm md:text-base leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: paragraph }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(paragraph) }}
             />
           ))}
         </div>
@@ -188,11 +189,14 @@ export default function LegalPage() {
     return () => observer.disconnect();
   }, [sectionIds, location.pathname]);
 
-  // Scroll to top on route change
+  // Scroll to top and update title on route change
   useEffect(() => {
     window.scrollTo(0, 0);
     setTocOpen(false);
-  }, [location.pathname]);
+    if (pageData) {
+      document.title = `${pageData.title} | Sponsa`;
+    }
+  }, [location.pathname, pageData]);
 
   // If no content found for this route, show fallback
   if (!pageData) {

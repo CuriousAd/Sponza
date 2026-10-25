@@ -45,8 +45,7 @@ void main() {
 }
 `;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(Math as any).map = function (
+function mathMap(
   n: number,
   start: number,
   stop: number,
@@ -54,7 +53,7 @@ void main() {
   stop2: number
 ) {
   return ((n - start) / (stop - start)) * (stop2 - start2) + start2;
-};
+}
 
 const PX_RATIO = typeof window !== "undefined" ? window.devicePixelRatio : 1;
 
@@ -211,7 +210,7 @@ class AsciiFilter {
         }
         str += "\n";
       }
-      this.pre.innerHTML = str;
+      this.pre.textContent = str;
     }
   }
 
@@ -350,8 +349,13 @@ class CanvAscii {
       }
     }
 
-    this.setMesh();
-    this.setRenderer();
+    try {
+      this.setMesh();
+      this.setRenderer();
+    } catch (e) {
+      console.error("WebGL initialization failed:", e);
+      throw e;
+    }
   }
 
   setMesh() {
@@ -454,8 +458,6 @@ class CanvAscii {
   }
 
   updateRotation() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mathMap = (Math as any).map;
     const x = mathMap(this.mouse.y, 0, this.height, 0.5, -0.5);
     const y = mathMap(this.mouse.x, 0, this.width, -0.5, 0.5);
 
